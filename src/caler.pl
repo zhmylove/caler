@@ -69,10 +69,8 @@ sub gather_data {
    for(;;sleep($step)) {
       $DB->put("app1", "CPU", $counter, int(rand(101)));
       $counter += $step;
-      if ($counter == $border) {
-          $counter = 0;
-          approx_app_metric("app1", "CPU");
-      }
+      $counter = 0 if $counter == (3600 * 24);
+      approx_app_metric("app1", "CPU") if $counter == $border;
    }
 }
 gather_data();
