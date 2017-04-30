@@ -11,6 +11,7 @@ use Time::Local;
 use CalerDB;
 
 my $DB = CalerDB->new("/tmp/caler.db");
+my %TemplateHash = ();
 END{ $DB->save_data() };
 $SIG{HUP} = sub { $DB->save_data() };
 
@@ -49,6 +50,33 @@ sub gather_data {
       approx_app_metric("app1", "CPU") if $counter == $border;
    }
 }
-gather_data();
+sub put_template {
+   my ($NAME, $ID) = @_;
+   $TemplateHash{ $NAME }->{ ID } = $ID; 
+}
+sub get_templateID {
+   my ($NAME) = @_;
+   return $TemplateHash{ $NAME }->{ ID }; 
+}
+sub start_vm {
+   my ($TEMPLATE_NAME) = @_;
+   my $templateID = get_templateID($TEMPLATE_NAME);
+   my $vmID = `onetemplate instantiate $templateID`;
+   push(@{ $TemplateHash{ $TEMPLATE_NAME }->{ "VM_LIST" } }, $vmID);
+}
+sub stop_vm {
+   my ($TEMPLATE_NAME) = @_;
+   my $vmID = pop @{ $TemplateHash{ $TEMPLATE_NAME }->{"VM_LIST"} };
+   $vmID =~ s/VM ID: //g;
+   system("onevm", "terminate", $vmID);
+}
+
+
+#gather_data();
+put_template("app1", 8);
+start_vm("app1");
+sleep(120);
+stop_vm("app1");
 use Data::Dumper;
-print Dumper($DB->get_DB());
+print Dumper(\%TemplateHash);
+#print Dumper($DB->get_DB());
