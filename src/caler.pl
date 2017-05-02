@@ -37,7 +37,7 @@ sub get_init_offset {
    my $offset = ($sec + $min * 60 + $hour * 3600);
    return $offset;
 }
-sub get_deploy_id {
+sub get_deploy_ids {
    my ($TEMPLATE_NAME) = @_;
    my @temp = ();
    my @deploy_ids = ();
@@ -49,35 +49,34 @@ sub get_deploy_id {
    }
    return @deploy_ids;
 }
-sub gather_data {
-   my ($TEMPLATE_NAME, $POLL_PERIOD) = @_;
-   my $previous = 0;
-   my $current = 0;
+sub get_cpu_time {
+   my ($TEMPLATE_NAME) = @_;
    my @temp = ();
    my $N = 0;
-   my @deploy_ids = get_deploy_id($TEMPLATE_NAME);
+   my $time = 0;
+   my @deploy_ids = get_deploy_ids($TEMPLATE_NAME);
    foreach my $deploy_id (@deploy_ids) {
-      @temp = `virsh domstats --cpu-total $deploy_id`;
+      @temp = `virsh -c qemu:///system domstats --cpu-total $deploy_id`;
       @temp = grep(/time/, @temp);
       $temp[0] =~ s/\D//g;
-      $previous += $temp[0];
+      $time += $temp[0];
       $N++;
    }
+   return ($time, $N);
+}
+sub gather_data {
+   my ($TEMPLATE_NAME, $POLL_PERIOD) = @_;
+   my @temp = ();
+   my ($previous, $N) = &get_cpu_time($TEMPLATE_NAME);
    sleep($POLL_PERIOD);
-   foreach my $deploy_id (@deploy_ids) {
-      @temp = `virsh domstats --cpu-total $deploy_id`;
-      @temp = grep(/time/, @temp);
-      $temp[0] =~ s/\D//g;
-      $current += $temp[0];
-   }
-   $current = ($current - $previous)/($N * (10 ** 9));
+   my ($current, $_) = &get_cpu_time($TEMPLATE_NAME);
+   $current = ($current - $previous)/($N * (10 ** 9)) * 100;
    return $current;
 }
 sub store_data {
    my $counter = 0;
    my $step = 60;
    my $init_offset = get_init_offset();
-   #sleep($step - $init_offset % $step);
    my $border = $init_offset + $step - $init_offset % $step;
    $counter = $border;
    $DB->put("app1", "CPU", $counter, gather_data("app1", $step - $init_offset % $step));
@@ -115,5 +114,5 @@ sub stop_vm {
 }
 put_template("app1", 8);
 start_vm("app1");
-sleep(100); 
+sleep(60); 
 store_data();
