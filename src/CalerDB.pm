@@ -43,20 +43,23 @@ sub save_data {
 
 # put ( APP, METRIC, TIME, VALUE )
 sub put {
-   my ($_, $APP, $METRIC, $TIME, $VALUE) = @_;
+   my ($_, $APP, $METRIC, $TIME, $VALUE, $COUNT) = @_;
 
    return 0 if ($VALUE // "") eq "";
 
-   $DB{ $APP }->{ $METRIC }->{ $TIME } = $VALUE;
+   push(@{ $DB{ $APP }->{ $METRIC }->{ $TIME } }, $VALUE);
+   push(@{ $DB{ $APP }->{ $METRIC }->{ $TIME } }, $COUNT);
+
 }
 
 # override approx values
 sub put_approx {
-   my ($_, $APP, $METRIC, $TIME, $VALUE) = @_;
+   my ($_, $APP, $METRIC, $TIME, $VALUE, $COUNT) = @_;
 
    return 0 if ($VALUE // "") eq "";
 
-   $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME } = $VALUE;
+   push (@{ $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME } }, $VALUE);
+   push (@{ $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME } }, $COUNT);
 }
 
 # get_day ( APP, METRIC )

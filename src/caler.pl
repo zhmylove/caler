@@ -45,33 +45,32 @@ sub get_deploy_ids {
       @temp = `onevm show $vmID`;
       @temp = grep(/DEPLOY/, @temp);
       $temp[0] =~ s/DEPLOY ID +: //;
+      continue if "$temp[0]" eq "-";
       push @deploy_ids, $temp[0];
    }
    return @deploy_ids;
 }
 sub get_cpu_time {
-   my ($TEMPLATE_NAME) = @_;
+   my $TEMPLATE_NAME = $_[0];
    my @temp = ();
    my $N = 0;
    my $time = 0;
-   my @deploy_ids = get_deploy_ids($TEMPLATE_NAME);
+   my @deploy_ids = defined $_[1] ? @{ $_[1] } : get_deploy_ids($TEMPLATE_NAME);
    foreach my $deploy_id (@deploy_ids) {
       @temp = `virsh -c qemu:///system domstats --cpu-total $deploy_id`;
       @temp = grep(/time/, @temp);
       $temp[0] =~ s/\D//g;
       $time += $temp[0];
-      $N++;
    }
-   return ($time, $N);
+   return ($time, $#deploy_ids + 1, @deploy_ids);
 }
 sub gather_data {
    my ($TEMPLATE_NAME, $POLL_PERIOD) = @_;
-   my @temp = ();
-   my ($previous, $N) = &get_cpu_time($TEMPLATE_NAME);
+   my ($previous, $N, @temp) = get_cpu_time($TEMPLATE_NAME);
    sleep($POLL_PERIOD);
-   my ($current, $_) = &get_cpu_time($TEMPLATE_NAME);
-   $current = ($current - $previous)/($N * (10 ** 9)) * 100;
-   return $current;
+   my ($current) = get_cpu_time($TEMPLATE_NAME, \@temp);
+   $current = ($current - $previous)/($N * $POLL_PERIOD * (10 ** 9)) * 100;
+   return ($current, $N);
 }
 sub store_data {
    my $counter = 0;
@@ -105,12 +104,14 @@ sub start_vm {
    my $vmID = `onetemplate instantiate $templateID`;
    $vmID =~ s/VM ID: //g;
    push(@{ $TemplateHash{ $TEMPLATE_NAME }->{ "VM_LIST" } }, $vmID);
+   return $vmID;
    
 }
 sub stop_vm {
    my ($TEMPLATE_NAME) = @_;
    my $vmID = pop @{ $TemplateHash{ $TEMPLATE_NAME }->{"VM_LIST"} };
    system("onevm", "terminate", $vmID);
+   return $vmID;
 }
 put_template("app1", 8);
 start_vm("app1");
