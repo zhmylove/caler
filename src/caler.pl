@@ -45,7 +45,7 @@ sub get_deploy_ids {
       @temp = `onevm show $vmID`;
       @temp = grep(/DEPLOY/, @temp);
       $temp[0] =~ s/DEPLOY ID +: //;
-      continue if "$temp[0]" eq "-";
+      next if (!($temp[0] =~ m/one/));
       push @deploy_ids, $temp[0];
    }
    return @deploy_ids;
@@ -75,6 +75,7 @@ sub gather_data {
 sub store_data {
    my $counter = 0;
    my $step = 60;
+   my ($util, $count);
    my $init_offset = get_init_offset();
    my $border = $init_offset + $step - $init_offset % $step;
    $counter = $border;
@@ -85,7 +86,9 @@ sub store_data {
       $counter += $step;
       $counter = 0 if $counter == (3600 * 24);
       approx_app_metric("app1", "CPU") if $counter == $border;
-      $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
+      $DB->put("app1", "CPU", $counter, ($util, $count) = gather_data("app1", $step));
+      start_vm("app1") if $util > 90;
+      stop_vm("app1") if $util < 30 and $count > 1;
       print Dumper(\%TemplateHash);
       print Dumper($DB->get_DB());
    }
