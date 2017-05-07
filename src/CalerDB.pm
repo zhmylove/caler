@@ -88,6 +88,13 @@ sub get_time {
 
    return $DB{ $APP }->{ $METRIC }->{ $TIME };
 }
+sub get_approx_time {
+   my ($_, $APP, $METRIC, $TIME) = @_;
+
+   return 0 if ($TIME // "") eq "";
+
+   return $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME };
+}
 
 sub get_N { return $DB{ N } // ($DB{ N } = 1); }
 

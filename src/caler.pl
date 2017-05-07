@@ -32,11 +32,13 @@ sub approx_app_metric {
 
    $DB->inc_N();
 }
+
 sub get_init_offset {
    my ($sec, $min, $hour) = localtime(time);
    my $offset = ($sec + $min * 60 + $hour * 3600);
    return $offset;
 }
+
 sub get_deploy_ids {
    my ($TEMPLATE_NAME) = @_;
    my @temp = ();
@@ -50,6 +52,7 @@ sub get_deploy_ids {
    }
    return @deploy_ids;
 }
+
 sub get_cpu_time {
    my $TEMPLATE_NAME = $_[0];
    my @temp = ();
@@ -64,6 +67,18 @@ sub get_cpu_time {
    }
    return ($time, $#deploy_ids + 1, @deploy_ids);
 }
+
+sub correlation {
+   my ($START, $STEP, $CORR_DURATON) = @_;
+   my @cpucorr = ();
+   $cpucorr[30] = 0;
+   for (my $count = $CORR_DURATION / $STEP; $count > 0; $count--) {
+       
+   }
+}
+
+
+
 sub gather_data {
    my ($TEMPLATE_NAME, $POLL_PERIOD) = @_;
    my ($previous, $N, @temp) = get_cpu_time($TEMPLATE_NAME);
@@ -72,6 +87,7 @@ sub gather_data {
    $current = ($current - $previous)/($N * $POLL_PERIOD * (10 ** 9)) * 100;
    return ($current, $N);
 }
+
 sub store_data {
    my $counter = 0;
    my $step = 60;
@@ -93,14 +109,17 @@ sub store_data {
       print Dumper($DB->get_DB());
    }
 }
+
 sub put_template {
    my ($NAME, $ID) = @_;
    $TemplateHash{ $NAME }->{ ID } = $ID; 
 }
+
 sub get_templateID {
    my ($NAME) = @_;
    return $TemplateHash{ $NAME }->{ ID }; 
 }
+
 sub start_vm {
    my ($TEMPLATE_NAME) = @_;
    my $templateID = get_templateID($TEMPLATE_NAME);
@@ -110,12 +129,14 @@ sub start_vm {
    return $vmID;
    
 }
+
 sub stop_vm {
    my ($TEMPLATE_NAME) = @_;
    my $vmID = pop @{ $TemplateHash{ $TEMPLATE_NAME }->{"VM_LIST"} };
    system("onevm", "terminate", $vmID);
    return $vmID;
 }
+
 put_template("app1", 8);
 start_vm("app1");
 sleep(60); 
