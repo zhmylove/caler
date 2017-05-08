@@ -48,7 +48,7 @@ sub get_deploy_ids {
       @temp = `onevm show $vmID`;
       @temp = grep(/DEPLOY/, @temp);
       $temp[0] =~ s/DEPLOY ID +: //;
-      next if (!($temp[0] =~ m/one/));
+      next unless $temp[0] =~ m/one/;
       push @deploy_ids, $temp[0];
    }
    return @deploy_ids;
@@ -79,21 +79,27 @@ sub correlation {
    $vmnumber[$n] = 0;
    for (my $count = $n; $count >= 0; $count--) {
       $currentcpu = ${ $DB->get_time("app1", "CPU", $START) }[0]; 
-      ($historicalmeancpu, $historicalmeanvm) = @{ $DB->get_approx_time("app1", "CPU", $START) };
+      $historicalmeancpu = ${ $DB->get_approx_time("app1", "CPU", $START) }[0];
       $_ = abs $currentcpu - $historicalmeancpu;
       pop @cpucorr;
-      pop @vmnumber;
       unshift @cpucorr, $_;
-      unshift @vmnumber, $historicalmeanvm;
       $START -= $STEP;  
    }
-   return ((1/($n + 1) * eval join "+", map { $_ // 0 } @cpucorr),  approx_vm_number($n + 1, \@vmnumber));
+   return 1/($n + 1) * eval join "+", map { $_ // 0 } @cpucorr;
 }
 
-sub approx_vm_number {
-   my $count = $_[0];
-   my @vmnumber = @ { $_[1] };
-   return ceil((1 / $count) * eval join "+", map { $_ // 0 } @vmnumber);
+sub get_vm_number_prediction {
+   my ($START, $STEP, $PREDICTION_STEP) = @_;
+   my @vmnumber = ();
+   my $n = $PREDICTION_STEP / $STEP;
+   $vmnumber[$n] = 0;
+   for (my $count = $n; $count >=0; $count--) {
+      $_ = ${ $DB->get_approx_time("app1", "CPU", $START) }[1];
+      pop @vmnumber;
+      unshift @vmnumber, $_;
+      $START += $STEP;
+   }
+   return ceil(1/($n + 1) * eval join "+", map { $_ // 0 } @vmnumber);
 }
 
 sub gather_data {
@@ -107,11 +113,11 @@ sub gather_data {
 
 sub store_data {
    my $counter = 0;
-   my $step = 60;
+   my $step = 60; #seconds between history marks
    my ($util, $count);
    my ($corell, $vmnumber);
    my $init_offset = get_init_offset();
-   my $correlation_threshold = 10;
+   my $correlation_threshold = 10; #avg deviation in percentages
    my $border = $init_offset + $step - $init_offset % $step;
    $counter = $border;
    $DB->put("app1", "CPU", $counter, gather_data("app1", $step - $init_offset % $step));
@@ -122,11 +128,26 @@ sub store_data {
       $counter = 0 if $counter == (3600 * 24);
       approx_app_metric("app1", "CPU") if $counter == $border;
       $DB->put("app1", "CPU", $counter, ($util, $count) = gather_data("app1", $step));
-      ($corell, $vmnumber) = correlation($counter, $step, 1800);
-      if ($corell < $correlation_threshold) {
-         #TODO: think about vm count and start/stop restriction
-         while ($vmnumber--) {
-            start_vm("app1");
+      $corell = correlation($counter, $step, 1800);
+      $vmnumber = get_vm_number_prediction($counter, $step, 600);
+      if ($corell <= $correlation_threshold) {
+         if ($count >= $vmnumber) {
+            $_ = $count - $vmnumber; 
+            while ($_--) {
+               stop_vm("app1");
+            }
+         } else {
+            $_ = $vmnumber - $count;
+            while ($_--) {
+               start_vm("app1");
+            }
+         }
+         $_ = $counter + 600;
+         $counter += $step;
+         for (;;$counter += $step) {
+            approx_app_metric("app1", "CPU") if $counter == $border;
+            $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
+            last if $counter == $_;
          }
       } else {
          start_vm("app1") if $util > 90;
@@ -166,22 +187,5 @@ sub stop_vm {
 
 put_template("app1", 8);
 $DB->put_approx("app1", "CPU", 300, 12, 1);
-$DB->put_approx("app1", "CPU", 360, 15, 2);
-$DB->put_approx("app1", "CPU", 420, 18, 3);
-$DB->put_approx("app1", "CPU", 480, 21, 1);
-$DB->put_approx("app1", "CPU", 540, 24, 2);
-$DB->put_approx("app1", "CPU", 600, 27, 3);
-$DB->put_approx("app1", "CPU", 660, 30, 1);
-$DB->put_approx("app1", "CPU", 720, 33, 1);
-$DB->put_approx("app1", "CPU", 780, 36, 1);
 $DB->put("app1", "CPU", 300, 11, 1);
-$DB->put("app1", "CPU", 360, 16, 1);
-$DB->put("app1", "CPU", 420, 15, 1);
-$DB->put("app1", "CPU", 480, 29, 1);
-$DB->put("app1", "CPU", 540, 26, 1);
-$DB->put("app1", "CPU", 600, 24, 1);
-$DB->put("app1", "CPU", 660, 35, 1);
-$DB->put("app1", "CPU", 720, 31, 1);
-$DB->put("app1", "CPU", 780, 30, 1);
-correlation(780, 60, 480);
 
