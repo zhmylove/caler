@@ -69,6 +69,8 @@ sub get_cpu_time {
    return ($time, $#deploy_ids + 1, @deploy_ids);
 }
 
+sub sum_list { eval join "+", map { $_ // 0 } @_ }
+
 sub correlation {
    my ($START, $STEP, $CORR_DURATION) = @_;
    my @cpucorr = ();
@@ -85,7 +87,7 @@ sub correlation {
       unshift @cpucorr, $_;
       $START -= $STEP;  
    }
-   return 1/($n + 1) * eval join "+", map { $_ // 0 } @cpucorr;
+   return 1/($n + 1) * sum_list(@cpucorr);
 }
 
 sub get_vm_number_prediction {
@@ -99,7 +101,7 @@ sub get_vm_number_prediction {
       unshift @vmnumber, $_;
       $START += $STEP;
    }
-   return ceil(1/($n + 1) * eval join "+", map { $_ // 0 } @vmnumber);
+   return ceil(1/($n + 1) * sum_list(@vmnumber));
 }
 
 sub gather_data {
