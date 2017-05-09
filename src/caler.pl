@@ -42,29 +42,22 @@ sub get_init_offset {
 
 sub get_deploy_ids {
    my ($TEMPLATE_NAME) = @_;
-   my @temp = ();
    my @deploy_ids = ();
    foreach my $vmID (@{ $TemplateHash{ $TEMPLATE_NAME }->{ "VM_LIST" } }) {
-      @temp = `onevm show $vmID`;
-      @temp = grep(/DEPLOY/, @temp);
-      $temp[0] =~ s/DEPLOY ID +: //;
-      next unless $temp[0] =~ m/one/;
-      push @deploy_ids, $temp[0];
+      my ($id) = `onevm show $vmID` =~ m{DEPLOY ID +: (one.+?) *\n}s;
+      push @deploy_ids, $id if defined $id;
    }
    return @deploy_ids;
 }
 
 sub get_cpu_time {
    my $TEMPLATE_NAME = $_[0];
-   my @temp = ();
    my $N = 0;
    my $time = 0;
    my @deploy_ids = defined $_[1] ? @{ $_[1] } : get_deploy_ids($TEMPLATE_NAME);
    foreach my $deploy_id (@deploy_ids) {
-      @temp = `virsh -c qemu:///system domstats --cpu-total $deploy_id`;
-      @temp = grep(/time/, @temp);
-      $temp[0] =~ s/\D//g;
-      $time += $temp[0];
+      my ($temp) = `virsh -c qemu:///system domstats --cpu-total $deploy_id` =~ m{time=(\d+)}s;
+      $time += $temp // 0;
    }
    return ($time, $#deploy_ids + 1, @deploy_ids);
 }
