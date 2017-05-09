@@ -12,6 +12,29 @@ use CalerDB;
 use Data::Dumper;
 use POSIX;
 
+=encoding utf-8
+
+=head1 NAME
+
+B<caler> -- auto-scaler for OpenNebula
+
+=head1 SYNOPSIS
+
+   su - oneadmin
+   ./caler
+
+=head1 DESCRIPTION
+
+The B<caler> utility performs auto-scaling routines for OpenNebula cloud.
+It based on history of usage of each template and uses some other
+algorithmistic improvements to manage VMs count. 
+
+=head1 FUNCTIONS
+
+=over 4
+
+=cut
+
 my $DB = CalerDB->new("/tmp/caler.db");
 my %TemplateHash = ();
 END{ $DB->save_data() };
@@ -34,11 +57,28 @@ sub approx_app_metric {
    $DB->inc_N();
 }
 
+=item get_init_offset()
+
+   ret: time offset of ./caler start from the beginning of the day
+
+=cut
+
 sub get_init_offset {
    my ($sec, $min, $hour) = localtime(time);
    my $offset = ($sec + $min * 60 + $hour * 3600);
    return $offset;
 }
+
+=item get_deploy_ids()
+
+   ret: ARRAY of deploy ids
+   arg0: template
+
+This function iterates through VMs from I<%TemplateHash> and made with I<template>.
+For each VMs it asks I<ONE> for deploy id of the VM.
+A list of deploy ids returned as well.
+
+=cut
 
 sub get_deploy_ids {
    my ($TEMPLATE_NAME) = @_;
@@ -62,7 +102,25 @@ sub get_cpu_time {
    return ($time, $#deploy_ids + 1, @deploy_ids);
 }
 
+=item sum_list()
+
+   ret: sum of arguments
+   arg0 .. : any number
+
+=cut
+
 sub sum_list { eval join "+", map { $_ // 0 } @_ }
+
+=item correlation()
+
+   ret: deviation from mean values (recent history)
+   arg0: time offset of current time
+   arg1: time step
+   arg2: period for looking back
+
+This function calculates average deviation of characteristics for some period of time.
+
+=cut
 
 sub correlation {
    my ($START, $STEP, $CORR_DURATION) = @_;
@@ -180,7 +238,13 @@ sub stop_vm {
    return $vmID;
 }
 
+=back
+
+And the program consists of:
+   some temporary code ...
+
+=cut
+
 put_template("app1", 8);
 $DB->put_approx("app1", "CPU", 300, 12, 1);
 $DB->put("app1", "CPU", 300, 11, 1);
-
