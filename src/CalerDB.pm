@@ -45,10 +45,9 @@ sub save_data {
 sub put {
    my ($_, $APP, $METRIC, $TIME, $VALUE, $COUNT) = @_;
 
-   return 0 if ($VALUE // "") eq "";
+   return 0 if ($COUNT // "") eq "";
 
-   push(@{ $DB{ $APP }->{ $METRIC }->{ $TIME } }, $VALUE);
-   push(@{ $DB{ $APP }->{ $METRIC }->{ $TIME } }, $COUNT);
+   $DB{ $APP }->{ $METRIC }->{ $TIME } = [ $VALUE, $COUNT ];
 
 }
 
@@ -56,10 +55,9 @@ sub put {
 sub put_approx {
    my ($_, $APP, $METRIC, $TIME, $VALUE, $COUNT) = @_;
 
-   return 0 if ($VALUE // "") eq "";
+   return 0 if ($COUNT // "") eq "";
 
-   push (@{ $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME } }, $VALUE);
-   push (@{ $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME } }, $COUNT);
+   $DB{ approx }->{ $APP }->{ $METRIC }->{ $TIME } = [ $VALUE, $COUNT ];
 }
 
 # get_day ( APP, METRIC )
