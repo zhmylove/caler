@@ -185,9 +185,9 @@ sub store_data {
       $vmnumber = get_vm_number_prediction($counter, $step, 600);
       if ($corell <= $correlation_threshold) {
          if ( ($_ = $count - $vmnumber) >= 0) { 
-            stop_vm("app1") while $_— 
+            stop_vm("app1") while $_--;
          } else { 
-            start_vm("app1") while $_++ 
+            start_vm("app1") while $_++;
          }
          
          my $till = $counter + 600;
