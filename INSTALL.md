@@ -6,7 +6,11 @@
 
 ```sh
 # su -
-# apt install ansible
+# apt install -y software-properties-common
+# apt-add-repository -y ppa:ansible/ansible
+# apt update
+# apt install ansible pip
+# pip install docker-py
 # echo 'localhost ansible_connection=local' >> /etc/ansible/hosts
 # ansible-playbook deploy.yml
 ```

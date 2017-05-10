@@ -4,11 +4,11 @@
 
 - name: install vim
   apt: update_cache=yes cache_valid_time=600 name=vim state=latest
-  sudo: yes
+  become: yes
 
 - name: sshd config
   copy: src=sshd_config dest=/etc/ssh/sshd_config mode=0644
-  sudo: yes
+  become: yes
   notify:
   - restart sshd
   tags:
@@ -21,7 +21,7 @@
 
 - name: generate ssh keys for root
   user: name=root generate_ssh_key=yes
-  sudo: yes
+  become: yes
   when: not ssh_key_file.stat.exists
   delegate_to: 127.0.0.1
 
