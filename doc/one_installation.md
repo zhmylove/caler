@@ -14,7 +14,7 @@ apt-get install -y nodejs npm
 npm config set http-proxy http://proxy:3128 
 npm config set https-proxy http://proxy:3128 
 npm set strict-ssl false 
-npm —proxy 192.168.2.1:3128 —without-ssl —insecure install -g bower 
+npm â€”proxy 192.168.2.1:3128 â€”without-ssl â€”insecure install -g bower 
 /usr/local/bin/bower -> /usr/local/lib/node_modules/bower/bin/bower 
 bower@1.8.0 /usr/local/lib/node_modules/bower
 npm install -g grunt
