@@ -184,23 +184,16 @@ sub store_data {
       $corell = correlation($counter, $step, 1800);
       $vmnumber = get_vm_number_prediction($counter, $step, 600);
       if ($corell <= $correlation_threshold) {
-         if ($count >= $vmnumber) {
-            $_ = $count - $vmnumber; 
-            while ($_--) {
-               stop_vm("app1");
-            }
-         } else {
-            $_ = $vmnumber - $count;
-            while ($_--) {
-               start_vm("app1");
-            }
+         if ( ($_ = $count - $vmnumber) >= 0) { 
+            stop_vm("app1") while $_— 
+         } else { 
+            start_vm("app1") while $_++ 
          }
-         $_ = $counter + 600;
-         $counter += $step;
-         for (;;$counter += $step) {
+         
+         my $till = $counter + 600;
+         for ($counter += $step; $counter < $till ;$counter += $step) {
             approx_app_metric("app1", "CPU") if $counter == $border;
             $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
-            last if $counter == $_;
          }
       } else {
          start_vm("app1") if $util > 90;
