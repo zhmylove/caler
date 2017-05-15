@@ -51,8 +51,8 @@ sub approx_app_metric {
    my $count = 0;
 
    while (my($key, $value) = each %current) {
-      $_ = (${ ($previous{$key} // 0) }[0] * ($N - 1) + ${ $current{$key} }[0]) / $N;
-      $count = (${ ($previous{$key} // 0) }[1] * ($N - 1) + ${ $current{$key} }[1]) / $N; 
+      $_ = ((${ $previous{$key} }[0] // 0) * ($N - 1) + ${ $current{$key} }[0]) / $N;
+      $count = ((${ $previous{$key} }[1] // 0) * ($N - 1) + ${ $current{$key} }[1]) / $N; 
       $DB->put_approx("app1", "CPU", $key, $_, $count);
    }
 
@@ -251,6 +251,17 @@ And the program consists of:
 =cut
 
 put_template("app1", 8);
-start_vm("app1");
-sleep(60);
-store_data();
+#start_vm("app1");
+#sleep(60);
+#store_data();
+$DB->put("app1", "CPU", 10, 20, 5);
+$DB->put("app1", "CPU", 20, 25, 6);
+$DB->put("app1", "CPU", 30, 30, 7);
+approx_app_metric("app1", "CPU");
+$DB->put("app1", "CPU", 10, 30, 7);
+$DB->put("app1", "CPU", 20, 35, 4);
+$DB->put("app1", "CPU", 30, 40, 1);
+$DB->put("app1", "CPU", 40, 50, 60);
+
+approx_app_metric("app1", "CPU");
+print Dumper($DB->get_DB());
