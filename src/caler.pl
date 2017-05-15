@@ -48,10 +48,12 @@ sub approx_app_metric {
    my %previous = %{ $DB->get_approx_day($APP, $METRIC) };
    my %current = %{ $DB->get_day($APP, $METRIC) };
    my $N = $DB->get_N();
+   my $count = 0;
 
    while (my($key, $value) = each %current) {
-      $_ = (($previous{$key} // 0) * ($N - 1) + $current{$key}) / $N;
-      $DB->put_approx("app1", "CPU", $key, $_);
+      $_ = (${ ($previous{$key} // 0) }[0] * ($N - 1) + ${ $current{$key} }[0]) / $N;
+      $count = (${ ($previous{$key} // 0) }[1] * ($N - 1) + ${ $current{$key} }[1]) / $N; 
+      $DB->put_approx("app1", "CPU", $key, $_, $count);
    }
 
    $DB->inc_N();
@@ -65,7 +67,8 @@ sub approx_app_metric {
 
 sub get_init_offset {
    my ($sec, $min, $hour) = localtime(time);
-   my $offset = ($sec + $min * 60 + $hour * 3600);
+   #my $offset = ($sec + $min * 60 + $hour * 3600);
+   my $offset = ($sec + $min * 60);
    return $offset;
 }
 
@@ -172,32 +175,41 @@ sub store_data {
    my $init_offset = get_init_offset();
    my $correlation_threshold = 10; #avg deviation in percentages
    my $border = $init_offset + $step - $init_offset % $step;
+   my $first_day = 1;
    $counter = $border;
    $DB->put("app1", "CPU", $counter, gather_data("app1", $step - $init_offset % $step));
    print Dumper(\%TemplateHash);
    print Dumper($DB->get_DB());
    for(;;) {
       $counter += $step;
-      $counter = 0 if $counter == (3600 * 24);
-      approx_app_metric("app1", "CPU") if $counter == $border;
+      $counter = 0 if $counter == 3600;
+      if ($counter == $border) {
+         approx_app_metric("app1", "CPU");
+         $first_day = 0;
+      }
       $DB->put("app1", "CPU", $counter, ($util, $count) = gather_data("app1", $step));
-      $corell = correlation($counter, $step, 1800);
-      $vmnumber = get_vm_number_prediction($counter, $step, 600);
-      if ($corell <= $correlation_threshold) {
-         if ( ($_ = $count - $vmnumber) >= 0) { 
-            stop_vm("app1") while $_--;
-         } else { 
-            start_vm("app1") while $_++;
-         }
-         
-         my $till = $counter + 600;
-         for ($counter += $step; $counter < $till ;$counter += $step) {
-            approx_app_metric("app1", "CPU") if $counter == $border;
-            $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
+      unless ($first_day) {
+         $corell = correlation($counter, $step, 1800);
+         $vmnumber = get_vm_number_prediction($counter, $step, 600);
+         if ($corell <= $correlation_threshold) {
+            if ( ($_ = $count - $vmnumber) >= 0) { 
+               stop_vm("app1") while $_--;
+            } else { 
+               start_vm("app1") while $_++;
+            }
+        
+            my $till = $counter + 600;
+            for ($counter += $step; $counter < $till ;$counter += $step) {
+               approx_app_metric("app1", "CPU") if $counter == $border;
+               $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
+            }
+         } else {
+            start_vm("app1") if $util > 90;
+            stop_vm("app1") if $util < 40 and $count > 1;
          }
       } else {
          start_vm("app1") if $util > 90;
-         stop_vm("app1") if $util < 30 and $count > 1;
+         stop_vm("app1") if $util < 40 and $count > 1;
       }
       print Dumper(\%TemplateHash);
       print Dumper($DB->get_DB());
@@ -239,5 +251,6 @@ And the program consists of:
 =cut
 
 put_template("app1", 8);
-$DB->put_approx("app1", "CPU", 300, 12, 1);
-$DB->put("app1", "CPU", 300, 11, 1);
+start_vm("app1");
+sleep(60);
+store_data();
