@@ -251,17 +251,6 @@ And the program consists of:
 =cut
 
 put_template("app1", 8);
-#start_vm("app1");
-#sleep(60);
-#store_data();
-$DB->put("app1", "CPU", 10, 20, 5);
-$DB->put("app1", "CPU", 20, 25, 6);
-$DB->put("app1", "CPU", 30, 30, 7);
-approx_app_metric("app1", "CPU");
-$DB->put("app1", "CPU", 10, 30, 7);
-$DB->put("app1", "CPU", 20, 35, 4);
-$DB->put("app1", "CPU", 30, 40, 1);
-$DB->put("app1", "CPU", 40, 50, 60);
-
-approx_app_metric("app1", "CPU");
-print Dumper($DB->get_DB());
+start_vm("app1");
+sleep(60);
+store_data();
