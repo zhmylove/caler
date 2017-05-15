@@ -140,6 +140,7 @@ sub correlation {
       pop @cpucorr;
       unshift @cpucorr, $_;
       $START -= $STEP;  
+      $START = 3600 + $START if $START < 0;
    }
    return 1/($n + 1) * sum_list(@cpucorr);
 }
@@ -154,6 +155,7 @@ sub get_vm_number_prediction {
       pop @vmnumber;
       unshift @vmnumber, $_;
       $START += $STEP;
+      $START = 0 if $START == 3600;
    }
    return ceil(1/($n + 1) * sum_list(@vmnumber));
 }
