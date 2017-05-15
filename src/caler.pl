@@ -200,10 +200,13 @@ sub store_data {
                start_vm("app1") while $_++;
             }
         
-            my $till = $counter + 600;
-            for ($counter += $step; $counter < $till ;$counter += $step) {
+            my $prediction_step = 600;
+            my $count = $prediction_step / $step;
+            for ($counter += $step; $count > 0 ; $count--) {
+               $counter = 0 if $counter == 3600;
                approx_app_metric("app1", "CPU") if $counter == $border;
                $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
+               $counter += $step;
             }
          } else {
             start_vm("app1") if $util > 90;
@@ -256,3 +259,6 @@ put_template("app1", 8);
 start_vm("app1");
 sleep(60);
 store_data();
+#foreach (sort { $a <=> $b } keys(%{ $DB->get_approx_day("app1", "CPU") })) {
+#   print "$_\n";
+#}
