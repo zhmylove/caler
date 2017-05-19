@@ -51,8 +51,8 @@ sub approx_app_metric {
    my $count = 0;
 
    while (my($key, $value) = each %current) {
-      $_ = ((${ $previous{$key} }[0] // 0) * ($N - 1) + ${ $current{$key} }[0]) / $N;
-      $count = ((${ $previous{$key} }[1] // 0) * ($N - 1) + ${ $current{$key} }[1]) / $N; 
+      $_ = ((${ $previous{$key} // [] }[0] // 0) * ($N - 1) + ${ $current{$key} }[0]) / $N;
+      $count = ((${ $previous{$key} // [] }[1] // 0) * ($N - 1) + ${ $current{$key} }[1]) / $N; 
       $DB->put_approx("app1", "CPU", $key, $_, $count);
    }
 
@@ -149,15 +149,17 @@ sub get_vm_number_prediction {
    my ($START, $STEP, $PREDICTION_STEP) = @_;
    my @vmnumber = ();
    my $n = $PREDICTION_STEP / $STEP;
-   $vmnumber[$n] = 0;
-   for (my $count = $n; $count >=0; $count--) {
-      $_ = ${ $DB->get_approx_time("app1", "CPU", $START) }[1];
-      pop @vmnumber;
-      unshift @vmnumber, $_;
+   my $max = 0;
+   for (my $count = $n; $count >= 0; $count--) {
+      @_ = @{ $DB->get_approx_time("app1", "CPU", $START) };
+      $_ = $_[0] * $_[1];
+      print "$_\n";
+      $max = $_ if $_ > $max;
       $START += $STEP;
       $START = 0 if $START == 3600;
    }
-   return ceil(1/($n + 1) * sum_list(@vmnumber));
+   $_ = ceil($max / 65);
+   return $_;
 }
 
 sub gather_data {
@@ -177,6 +179,8 @@ sub store_data {
    my $init_offset = get_init_offset();
    my $correlation_threshold = 10; #avg deviation in percentages
    my $border = $init_offset + $step - $init_offset % $step;
+   my $prediction_period = 600;
+   my $prediction_step = (int(($prediction_period / 3) / 60)) * 60;
    my $first_day = 1;
    $counter = $border;
    $DB->put("app1", "CPU", $counter, gather_data("app1", $step - $init_offset % $step));
@@ -192,22 +196,33 @@ sub store_data {
       $DB->put("app1", "CPU", $counter, ($util, $count) = gather_data("app1", $step));
       unless ($first_day) {
          $corell = correlation($counter, $step, 1800);
-         $vmnumber = get_vm_number_prediction($counter, $step, 600);
          if ($corell <= $correlation_threshold) {
+            $vmnumber = get_vm_number_prediction($counter, $step, $prediction_step);
             if ( ($_ = $count - $vmnumber) >= 0) { 
                stop_vm("app1") while $_--;
             } else { 
                start_vm("app1") while $_++;
             }
-        
-            my $prediction_step = 600;
-            my $count = $prediction_step / $step;
+
+            my $count = $prediction_period / $step;
+            my $prediction_step_counter = 0;
             for ($counter += $step; $count > 0 ; $count--) {
                $counter = 0 if $counter == 3600;
                approx_app_metric("app1", "CPU") if $counter == $border;
-               $DB->put("app1", "CPU", $counter, gather_data("app1", $step));
+               $DB->put("app1", "CPU", $counter, ($util, $count) = gather_data("app1", $step));
+               $prediction_step_counter += $step;
+               if ($prediction_step_counter == $prediction_step) {
+                  $vmnumber = get_vm_number_prediction($counter, $step, $prediction_step);
+                  if ( ($_ = $count - $vmnumber) >= 0) { 
+                     stop_vm("app1") while $_--;
+                  } else { 
+                     start_vm("app1") while $_++;
+                  }
+                  $prediction_step_counter = 0;
+               }
                $counter += $step;
             }
+            $counter -= $step;
          } else {
             start_vm("app1") if $util > 90;
             stop_vm("app1") if $util < 40 and $count > 1;
@@ -259,6 +274,6 @@ put_template("app1", 8);
 start_vm("app1");
 sleep(60);
 store_data();
-#foreach (sort { $a <=> $b } keys(%{ $DB->get_approx_day("app1", "CPU") })) {
-#   print "$_\n";
-#}
+#$\="\n";
+#print for sort keys %{ $DB->get_approx_day("app1", "CPU") };
+
