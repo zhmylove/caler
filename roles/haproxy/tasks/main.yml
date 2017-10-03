@@ -1,0 +1,17 @@
+---
+
+- name: install haproxy
+  apt: update_cache=yes name=haproxy state=latest
+
+- name: init add script
+  copy: src=haproxy-add dest=/usr/local/bin/haproxy-add mode=0755
+
+- name: init del script
+  copy: src=haproxy-del dest=/usr/local/bin/haproxy-del mode=0755
+
+- name: configure haproxy
+  template: src=haproxy.cfg.j2 dest=/etc/haproxy/haproxy.cfg
+  notify: restart haproxy
+
+- name: start haproxy
+  service: name=haproxy state=started enabled=yes

@@ -3,8 +3,11 @@
   apt: name=aptitude state=present
 
 - name: install vim
-  apt: update_cache=yes cache_valid_time=600 name=vim state=latest
+  apt: update_cache=yes name=vim state=latest
   become: yes
+
+- name: transport https
+  apt: name=apt-transport-https state=latest
 
 - name: sshd config
   copy: src=sshd_config dest=/etc/ssh/sshd_config mode=0644
@@ -32,3 +35,89 @@
     key: "{{ lookup('file', '/root/.ssh/id_rsa.pub') }}"
   tags:
     - ssh
+
+- name: create oneadmin group
+  group:
+    name: oneadmin
+    state: present
+
+- name: create oneadmin user
+  user:
+    name: oneadmin
+    group: oneadmin
+    shell: /bin/bash
+    home: /var/lib/one
+
+- name: install dependencies
+  apt: name={{ item }} state=latest
+  with_items:
+    - ruby-dev
+    - make
+    - gcc
+    - libcurl4-openssl-dev
+    - libxml2-dev
+    - libmysql++-dev
+    - libxslt1-dev
+    - rake
+    - g++
+    - libsqlite3-dev
+    - qemu-utils
+
+- name: wget opennebula repo key
+  get_url: 
+    url: https://downloads.opennebula.org/repo/repo.key
+    dest: /var/tmp/repo.key
+
+- name: add key
+  apt_key:
+    data: "{{ lookup('file', '/var/tmp/repo.key') }}"
+    state: present
+
+- name: add repo to list
+  shell: "echo \"deb https://downloads.opennebula.org/repo/5.4/Debian/9 stable opennebula\" > /etc/apt/sources.list.d/opennebula.list"
+
+- name: install packages
+  apt: update_cache=yes name={{ item }} state=latest
+  with_items:
+  - opennebula
+  - opennebula-sunstone
+  - opennebula-gate
+  - opennebula-flow
+  - opennebula-tools
+  - opennebula-common
+
+- name: listen all interfaces
+  lineinfile: 
+    dest=/etc/one/oned.conf
+    backup=yes
+    regexp="^LISTEN_ADDRESS = \"127.0.0.1\""
+    line="LISTEN_ADDRESS = \"0.0.0.0\""
+
+- name: install ruby gems
+  shell: yes | /usr/share/one/install_gems
+
+- block:
+  - name: create ssh keys for oneadmin
+    user: name=oneadmin generate_ssh_key=yes
+    when: not ssh_key_file.stat.exists
+    delegate_to: 127.0.0.1
+
+  - name: create passwd dir
+    file: path=/var/lib/one/.one state=directory
+
+  - name: set oneadmin password
+    action: template src=one_auth.j2 dest=/var/lib/one/.one/one_auth owner=oneadmin group=oneadmin mode=0600
+
+  - name: export one_auth
+    shell: export ONE_AUTH=/home/user/.one/one_auth
+    notify:
+      - restart oned
+
+  - name: start core and web
+    shell: "one start && sunstone-server start "
+
+  become: yes
+  become_user: oneadmin      
+
+
+

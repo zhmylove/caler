@@ -2,3 +2,8 @@
 - name: restart sshd
   service: name=ssh state=restarted
   become: yes
+
+- name: restart oned
+  shell: one restart
+  become: yes
+  become_user: oneadmin
