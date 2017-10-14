@@ -40,6 +40,15 @@ my %TemplateHash = ();
 END{ $DB->save_data() };
 $SIG{HUP} = sub { $DB->save_data() };
 
+=item approx_app_metric()
+  
+  arg0: application
+  arg1: metric
+
+  This function approximates previous and current metric value and puts it iinto database. It uses arithmetic mean.
+
+=cut
+
 sub approx_app_metric {
    my ($APP, $METRIC) = @_;
 
@@ -65,6 +74,11 @@ sub approx_app_metric {
 
 =cut
 
+=item get_init_offset()
+
+  ret: offset from 0:00 am in seconds
+
+=cut
 sub get_init_offset {
    my ($sec, $min, $hour) = localtime(time);
    #my $offset = ($sec + $min * 60 + $hour * 3600);
@@ -92,6 +106,16 @@ sub get_deploy_ids {
    }
    return @deploy_ids;
 }
+
+=item get_cpu_time()
+
+  ret: CPU time, VMs in template, list of deploy ids
+  arg0: template name
+  arg1: deploy id list
+
+  This funiction calculates total CPU time for all VM's of the template.
+
+=cut
 
 sub get_cpu_time {
    my $TEMPLATE_NAME = $_[0];
@@ -145,6 +169,17 @@ sub correlation {
    return 1/($n + 1) * sum_list(@cpucorr);
 }
 
+=item get_vm_number_prediction()
+  
+  ret: possible VM count in future
+  arg1: initial time stamp
+  arg2: time step in history
+  arg3: time step of the prediction
+
+  This function tries to predict VM count in future by using historical VM count and CPU utilization. 
+
+=cut
+
 sub get_vm_number_prediction {
    my ($START, $STEP, $PREDICTION_STEP) = @_;
    my @vmnumber = ();
@@ -162,6 +197,16 @@ sub get_vm_number_prediction {
    return $_;
 }
 
+=item gather_data()
+
+  ret: CPU utilization for template, template's VM count
+  arg0: template name
+  arg1: polling period
+
+  This function gathers CPU time for tempalte and translates it into percentages.
+
+=cut
+
 sub gather_data {
    my ($TEMPLATE_NAME, $POLL_PERIOD) = @_;
    my ($previous, $N, @temp) = get_cpu_time($TEMPLATE_NAME);
@@ -170,6 +215,11 @@ sub gather_data {
    $current = ($current - $previous)/($N * $POLL_PERIOD * (10 ** 9)) * 100;
    return ($current, $N);
 }
+
+=item store_data()
+
+  Main logic. This function controls application infrastructure by gathering metrics, storing them into database and calculating required VMs number based on the current or historical resource utilization.
+=cut
 
 sub store_data {
    my $counter = 0;
@@ -236,16 +286,42 @@ sub store_data {
    }
 }
 
+=item put_template()
+
+  arg0: template name
+  arg1: template id
+
+  This function put template into database.
+  
+=cut
+
 sub put_template {
    my ($NAME, $ID) = @_;
    $TemplateHash{ $NAME }->{ ID } = $ID; 
 }
+
+=item get_templateID()
+
+  ret: template id
+  arg0: template name
+
+  This function gets template id by name.
+
+=cut
 
 sub get_templateID {
    my ($NAME) = @_;
    return $TemplateHash{ $NAME }->{ ID }; 
 }
 
+=item start_vm()
+
+  ret: ID of the created VM
+  arg0: template name
+
+  This function creates VM from template and adds it's information to the database.
+
+=cut
 sub start_vm {
    my ($TEMPLATE_NAME) = @_;
    my $templateID = get_templateID($TEMPLATE_NAME);
@@ -255,6 +331,15 @@ sub start_vm {
    return $vmID;
    
 }
+
+=item stop_vm()
+
+  ret: ID of the stoped VM
+  arg0: template name
+
+  This function terminates VM and removes it's information from the database.
+
+=cut
 
 sub stop_vm {
    my ($TEMPLATE_NAME) = @_;
