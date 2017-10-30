@@ -14,8 +14,9 @@ my $count = 0;
 my $normalized_count = 0; # same as normalized_time
 my @data;
 my @normalized_data;
+my %PT; # period table
 
-my $_DEBUG = 1;
+my $_DEBUG = 0;
 
 # print debug message if $_DEBUG
 sub debug {
@@ -106,10 +107,15 @@ sub stddev($$) {
 sub correlate_arrays($$$) {
    my ($n, $idx1, $idx2) = @_;
 
-   print STDERR "correlate_arrays( $n, $idx1, $idx2 )\n";
+   print STDERR "correlate_arrays( $n, $idx1, $idx2 )\n" if $_DEBUG;
+
+   my $stddev1 = stddev($n, $idx1);
+   my $stddev2 = stddev($n, $idx2);
+
+   return -0 if abs($stddev1 * $stddev2) < 0.00000001;
 
    return cov($n, $idx1, $idx2) / (
-       stddev($n, $idx1) * stddev($n, $idx2) # TODO: division by zero
+       $stddev1 * $stddev2
    );
 }
 
@@ -123,7 +129,9 @@ sub calculate_period($) {
 
    # calculate correlation for two parts
    my $r = correlate_arrays( $time / 2, 0, $time / 2 );
-   print "$r\n";
+   # print "$r\n";
+
+   $PT{ $time / 2 }++ if $r > 0.95;
 }
 
 # iterate over the PT and check every periods
@@ -168,3 +176,6 @@ while (defined($_ = <>)) {
    debug(\@data);
    debug(\@normalized_data);
 }
+
+$, = "\n";
+print STDERR sort {$a <=> $b} keys %PT;
