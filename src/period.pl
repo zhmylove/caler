@@ -22,10 +22,81 @@ sub debug {
    print STDERR Dumper(@_) if $_DEBUG;
 }
 
-# evaluate correlation coefficient for two parts of @normalized_data
-#                     n * sum(x*y) - sum(x) * sum(y)
-# r = -------------------------------------------------------------
-#     sqrt( (n * sum(x^2) - sum(x)^2) * (n * sum(y^2) - sum(y)^2) )
+# evaluate covariance for two parts of @normalized_data slice
+#
+# cov(X, Y) = E[(X - E(X)) * (Y - E(Y))] ,
+#
+# where E(X) is expected value of X.
+#
+# arg0: length
+# arg1: index of the first subarray
+# arg2: index of the second subarray
+#
+# rc: covariance
+sub cov($$$) {
+    my ($n, $idx1, $idx2) = @_;
+
+    my ($meanx, $meany) = (0, 0);
+
+    for (my $i = 0; $i < $n; ++$i) {
+        my $x_idx = $idx1 + $i;
+        my $y_idx = $idx2 + $i;
+
+        $meanx += $normalized_data[$x_idx];
+        $meany += $normalized_data[$y_idx];
+    }
+    $meanx /= $n;
+    $meany /= $n;
+
+
+    my $cv = 0;
+
+    for (my $i = 0; $i < $n; ++$i) {
+        my $x_idx = $idx1 + $i;
+        my $y_idx = $idx2 + $i;
+
+        $cv += (($normalized_data[$x_idx] - $meanx) *
+            ($normalized_data[$y_idx] - $meany));
+    }
+
+    $cv /= $n;
+}
+
+# evaluate standard deviation for @normalized_data slice
+#
+# s = sqrt( E(X**2) - E(X)**2 ) ,
+#
+# where E(X) is expected value of X.
+# 
+# arg0: length
+# arg1: index of the subarray
+#
+# rc: standard deviation
+sub stddev($$) {
+    my ($n, $idx) = @_;
+
+    my ($meanx, $meanxx) = (0, 0);
+
+    for (my $i = 0; $i < $n; ++$i) {
+        my $x_idx = $idx + $i;
+
+        $meanxx += $normalized_data[$x_idx] ** 2;
+        $meanx  += $normalized_data[$x_idx];
+    }
+
+    $meanxx /= $n;
+    $meanx  /= $n;
+
+    sqrt( $meanxx - $meanx ** 2 );
+}
+
+# evaluate Pearson correlation coefficient for two parts of @normalized_data
+#
+#            cov(X, Y)
+# r = ----------------------- ,
+#      stddev(X) * stddev(Y)
+#
+# where cov(X, Y) is covariance, stddev(X) is standard deviation.
 # 
 # arg0: length
 # arg1: index of the first subarray
@@ -37,35 +108,8 @@ sub correlate_arrays($$$) {
 
    print STDERR "correlate_arrays( $n, $idx1, $idx2 )\n";
 
-   my ($sum_x, $sum_y, $sum_xy, $sum_x2, $sum_y2);
-
-   for (my $i = 0; $i < $n; $i++) {
-      my $x_idx = $idx1 + $i;
-      my $y_idx = $idx2 + $i;
-
-      $sum_x  += $normalized_data[$x_idx];
-      $sum_y  += $normalized_data[$y_idx];
-      $sum_xy += $normalized_data[$x_idx] * $normalized_data[$y_idx];
-      $sum_x2 += $normalized_data[$x_idx] ** 2;
-      $sum_y2 += $normalized_data[$y_idx] ** 2;
-
-      debug("--");
-      debug("n=");
-      debug(\$n);
-      debug("sum_x=");
-      debug(\$sum_x);
-      debug("sum_y=");
-      debug(\$sum_y);
-      debug("sum_xy=");
-      debug(\$sum_xy);
-      debug("sum_x2=");
-      debug(\$sum_x2);
-      debug("sum_y2=");
-      debug(\$sum_y2);
-   }
-
-   return ($n * $sum_xy - $sum_x * $sum_y) / sqrt(
-      ($n * $sum_x2 - $sum_x ** 2) * ($n * $sum_y2 - $sum_y ** 2)
+   return cov($n, $idx1, $idx2) / (
+       stddev($n, $idx1) * stddev($n, $idx2) # TODO: division by zero
    );
 }
 
@@ -77,7 +121,7 @@ sub calculate_period($) {
    return if $time % 2;
    print STDERR "calculate_period( $time )\n" if $_DEBUG;
 
-   # calculate correllation for two parts
+   # calculate correlation for two parts
    my $r = correlate_arrays( $time / 2, 0, $time / 2 );
    print "$r\n";
 }
