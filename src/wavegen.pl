@@ -74,31 +74,70 @@ sub triangle($) {
 
 # Argument generators
 
-{
-  my $state = 0;
-  # Gives sequence of angles in radians.
-  #
-  # arg0: reset flag
-  #
-  # ret: next angle value
-  sub even_rad(\$) {
-    return $state = 0 if defined $_[0];
-    (pi() * ($state++) ) / 180;
-  }
-}
+# Small nice metaprogramming from korg.
+#
+# Example of usage:
+#
+# generator { $state += 3 } 'f', +666;
+#
+# will be translated in next equivalent code:
+#
+# {
+#   my $state = 666;
+#   sub f(\$) {
+#     return $state = 666 if defined $_[0];
+#     $state += 3;
+#   }
+# }
+#
+# Thus, we have a python-like generators in Perl!
+#
+# Also, generators can be reseted to default value by calling them with defined
+# first argument.
+#
+# arg0: code block, which operates with $state (as with closure) and yelds next
+#       value when called
+# arg1: generator's name, string. Shall be used as a function after creation.
+# arg2: initial generator's value
+no strict "refs";
+our $state;
+sub generator(&$$) {
+  my ($code, $name, $init) = @_;
 
-{
-  my $state = 0;
-  # Gives sequence of floating point numbers with step = 0.1
-  #
-  # arg0: reset flag
-  #
-  # ret: next value
-  sub even(\$) {
-    return $state = 0 if defined $_[0];
-    $state += 0.1;
+  # Create global reference to function with given $name
+  *$name = sub {
+    # Place _state, followed by the function name into string and eval() it
+    # to create a closure for exactly this function, if it hasn't been created
+    # before
+    eval "our \$${name}_state = $init unless defined \$${name}_state";
+    # Then, create variable in this scope with name $state, which are pointing
+    # to closure
+    eval "*state = *${name}_state";
+    # Check for argument (used when there is need to reset the generator)
+    return $::state = $init if defined $_[0];
+    # Just call the given code, which can use $state, unique for it
+    &$code;
   }
 }
+use strict "refs";
+
+# Gives sequence of angles in radians.
+#
+# arg0: reset flag
+#
+# ret: next angle value
+generator {
+  (pi() * ($state++) ) / 180;
+} 'even_rad', +0;
+
+# Gives sequence of floating point numbers with step = 0.1
+#
+# arg0: reset flag
+#
+# ret: next value
+generator {
+  $state += 0.1;
+} 'even', +0;
 
 # main routine
 #tabulate \&sin,         \&even_rad, 5*2*pi();
