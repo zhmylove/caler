@@ -39,10 +39,12 @@ sub tabulate($$$) {
 }
 
 # Built-in functions wrappers. Needed because we can't take a reference to 'em.
+#-- sin
 sub sin($) {
   sin $_[0];
 }
 
+#-- cos
 sub cos($) {
   cos $_[0];
 }
@@ -50,21 +52,25 @@ sub cos($) {
 # Other functions
 
 # Generates a saw wave
+#-- saw
 sub saw($) {
   2 * ($_[0] - floor($_[0])) - 1;
 }
 
 # Generates meander (pulse)
+#-- meander_5_5
 sub meander_5_5($) {
   saw($_[0]) - saw($_[0] - 0.5);
 }
 
 # Generates meander (pulse)
+#-- meander_3_7
 sub meander_3_7($) {
   saw($_[0]) - saw($_[0] - 0.3);
 }
 
 # Generates triangle wave
+#-- triangle
 sub triangle($) {
   ($_[0] -
     2 * floor(($_[0] + 1) / 2)
