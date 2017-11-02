@@ -12,16 +12,17 @@ use Data::Dumper;
 
 ## User variables
 
-my $threshold = 0.95;     # correlanion threshold
+my $corr_threshold = 0.9999;  # correlanion threshold
+my $conv_threshold = 3;       # convolution_threshold
 
-my $_DEBUG = 1;           # debug level
+my $_DEBUG = 1;               # debug level
 
 ## System variables
-my $count = 0;
-my $normalized_count = 0; # same as normalized_time
-my @data;
-my @normalized_data;
-my %PT;                   # period table
+my $count = 0;                # same as time
+my $normalized_count = 0;     # same as normalized_time
+my @data;                     # buf for input data
+my @normalized_data;          # buf for normalized data
+my %PT;                       # period table
 
 # evaluate covariance for two parts of @normalized_data slice
 #
@@ -135,7 +136,7 @@ sub calculate_period($) {
    my $r = correlate_arrays( $time / 2, 1, 1 + $time / 2 );
    print "Correlation: $r\n" if $_DEBUG > 4;
 
-   $PT{ $time / 2 }++ if $r > $threshold;
+   $PT{ $time / 2 }++ if $r > $corr_threshold;
 }
 
 # iterate over the PT and check every periods
@@ -151,7 +152,7 @@ sub check_periods($) {
       my $r = correlate_arrays( $key, 1 + $time - 2 * $key, 1 + $time - $key );
       print STDERR " check: time=$time key=$key r=$r\n" if $_DEBUG > 3;
 
-      if ($r > $threshold) {
+      if ($r > $corr_threshold) {
          $PT{$key}++;
       } else {
          delete $PT{$key};
@@ -172,11 +173,11 @@ sub add_normalized($$) {
          $normalized_data[$normalized_count - 1] || $value
       ) + $step;
 
+      calculate_period($normalized_count) if $normalized_count > 0;
+      check_periods($normalized_count);
+
       $normalized_count++;
    }
-
-   calculate_period($time) if $time > 0;
-   check_periods($time);
 }
 
 # main routine
@@ -199,7 +200,25 @@ while (defined($_ = <>)) {
    print STDERR Dumper(\%PT) if $_DEBUG > 7;
 }
 
-$\ = "\n";
+#$\ = "\n";
 #print for sort {$a <=> $b} keys %PT;
-print $_ / 1 . " $PT{$_}" for sort {$a <=> $b} keys %PT;
-#print Dumper(\%PT);
+#print $_ / 1 . " $PT{$_}" for sort {$a <=> $b} keys %PT;
+print Dumper(\%PT);
+
+my ($prev, $mean, $N, %periods) = (0);
+for (sort {$a <=> $b} keys %PT) {
+   if ($prev + $conv_threshold >= $_) { 
+      $mean *= $N++;
+      $mean += $_;
+      $mean /= $N
+   } else {
+      $periods{$mean} = $N if defined $N;
+      $mean = $_;
+      $N = 1
+   }
+
+   $prev = $_
+}
+
+$periods{$mean}=$N;
+print Dumper(\%periods);
