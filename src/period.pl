@@ -15,14 +15,17 @@ use Data::Dumper;
 my $corr_threshold = 0.9999;  # correlanion threshold
 my $conv_threshold = 3;       # convolution_threshold
 
-my $_DEBUG = 1;               # debug level
+my $_DEBUG = 0;               # debug level
 
 ## System variables
 my $count = 0;                # same as time
 my $normalized_count = 0;     # same as normalized_time
 my @data;                     # buf for input data
 my @normalized_data;          # buf for normalized data
+my @time;                     # buf for actual time (see notime)
 my %PT;                       # period table
+my %CFG;                      # parameters of the script
+my $period = 0;               # evaluated period
 
 # evaluate covariance for two parts of @normalized_data slice
 #
@@ -134,7 +137,7 @@ sub calculate_period($) {
 
    # calculate correlation for two parts
    my $r = correlate_arrays( $time / 2, 1, 1 + $time / 2 );
-   print "Correlation: $r\n" if $_DEBUG > 4;
+   print STDERR "Correlation: $r\n" if $_DEBUG > 4;
 
    $PT{ $time / 2 }++ if $r > $corr_threshold;
 }
@@ -180,7 +183,17 @@ sub add_normalized($$) {
    }
 }
 
-# main routine
+## Main routine
+# parse arguments
+while (defined ($_ = $ARGV[0])) {
+   last if /^[^-]/ || (/^--$/ && shift);
+
+   $CFG{notime} = 1 if /^-notime$/ || /^-nt$/;
+
+   shift;
+}
+
+# slurp stdin
 while (defined($_ = <>)) {
    chomp;
 
@@ -190,22 +203,30 @@ while (defined($_ = <>)) {
 
    my ($time, $value) = @line;
 
+   if ($CFG{notime}) {
+      push @time, $time;
+      $time = +@time;
+   }
+
    warn "Time goes back: [$_]\n" and next if $time < $normalized_count;
 
    $data[$count++] = { $time => $value };
    add_normalized($time, $value);
 
+   $period = (sort { $PT{$b} <=> $PT{$a} } keys %PT)[0] // 0;
+
    print STDERR Dumper(\@data) if $_DEBUG > 10;
    print STDERR Dumper(\@normalized_data) if $_DEBUG > 8;
    print STDERR Dumper(\%PT) if $_DEBUG > 7;
+   print STDERR "= [$time] period = $period\n" if $_DEBUG > 2;
 }
 
-#$\ = "\n";
-#print for sort {$a <=> $b} keys %PT;
-#print $_ / 1 . " $PT{$_}" for sort {$a <=> $b} keys %PT;
-print Dumper(\%PT);
+die "No data mined!\n" unless keys %PT;
 
-my ($prev, $mean, $N, %periods) = (0);
+print STDERR Dumper(\%PT) if $_DEBUG > 0;
+
+# Off-line analysis: convolution of the results, in case of too many of them
+my ($prev, $mean, $N, %periods) = (0, 0);
 for (sort {$a <=> $b} keys %PT) {
    if ($prev + $conv_threshold >= $_) { 
       $mean *= $N++;
@@ -221,4 +242,8 @@ for (sort {$a <=> $b} keys %PT) {
 }
 
 $periods{$mean}=$N;
-print Dumper(\%periods);
+print STDERR Dumper(\%periods) if $_DEBUG > 0;
+
+# results
+$period = $time[$period - 1] if $CFG{notime};
+print "$period\n";
