@@ -1,12 +1,12 @@
 #/bin/sh -e
-# Made by kk
+# Made by korg
 
-funcs=$(
-  perl -lne 's/.{4}//, y/ /_/, print if /^#-- /' ./wavegen.pl
-  ) || exit 13
+WAVEGEN="wavegen.pl"
+PERIODS="2 3 4 5 6 8 10 12"
 
-for f in $funcs
-do
-  echo $f
-  # TODO: call wavegen with $f as an argument, pass period also.
+perl -0l12ne 'print for /#- Generates.*?sub ([^\s(]+)/gs' "$WAVEGEN" |
+while read sub ;do
+   for PERIOD in $PERIODS ;do
+      "$WAVEGEN" "-p$PERIOD" # > FILENAME_GOES_HERE
+   done
 done

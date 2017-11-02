@@ -39,38 +39,34 @@ sub tabulate($$$) {
 }
 
 # Built-in functions wrappers. Needed because we can't take a reference to 'em.
-#-- sin
+#- Generates sin
 sub sin($) {
   sin $_[0];
 }
 
-#-- cos
+#- Generates cos
 sub cos($) {
   cos $_[0];
 }
 
 # Other functions
 
-# Generates a saw wave
-#-- saw
+#- Generates a saw wave
 sub saw($) {
   2 * ($_[0] - floor($_[0])) - 1;
 }
 
-# Generates meander (pulse)
-#-- meander_5_5
+#- Generates meander (pulse)
 sub meander_5_5($) {
   saw($_[0]) - saw($_[0] - 0.5);
 }
 
-# Generates meander (pulse)
-#-- meander_3_7
+#- Generates meander (pulse)
 sub meander_3_7($) {
   saw($_[0]) - saw($_[0] - 0.3);
 }
 
-# Generates triangle wave
-#-- triangle
+#- Generates triangle wave
 sub triangle($) {
   ($_[0] -
     2 * floor(($_[0] + 1) / 2)
@@ -145,7 +141,17 @@ generator {
   $state += 0.1;
 } 'even', +0;
 
-# main routine
+### main routine
+
+# default arguments values
+our %CFG = (
+   period => 6
+);
+# parse arguments, if any
+for (@ARGV) {
+   $CFG{period} = $1 if /-p(\d+)/;
+}
+
 #tabulate \&sin,         \&even_rad, 5*2*pi();
 tabulate \&cos,         \&even_rad, 5*2*pi();
 #tabulate \&saw,         \&even,     100;
