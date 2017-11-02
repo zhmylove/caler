@@ -11,7 +11,7 @@ binmode STDOUT, ':utf8';
 
 use Data::Dumper;
 
-my $_DEBUG = 0;
+my $_DEBUG = 1;
 
 # avoid Math::Trig problems
 sub pi { 3.141592653589793238462643383279 }
@@ -27,12 +27,15 @@ sub debug {
 # arg0: reference to function
 # arg1: reference to argument generator
 # arg2: terminator
-sub tabulate($$$) {
+# args: arg0's arguments
+sub tabulate($$$;@) {
   my ($f, $g, $t) = @_;
   debug $f, $g, $t;
 
+  @_ = splice @_, 3;
+
   my $i;
-  print "$i @{[&$f($i)]}\n" while (($i = &$g()) // $t) < $t;
+  print "$i @{[&$f($i, @_)]}\n" while (($i = &$g()) // $t) < $t;
 
   # Reset the generator
   &$g(0);
@@ -40,34 +43,40 @@ sub tabulate($$$) {
 
 # Built-in functions wrappers. Needed because we can't take a reference to 'em.
 #- Generates sin
-sub sin($) {
-  sin $_[0];
+sub sin($;@) {
+  my $T = $_[1]; # Period
+  sin $_[0] * 2*pi() / $T;
 }
 
 #- Generates cos
-sub cos($) {
-  cos $_[0];
+sub cos($;@) {
+  my $T = $_[1]; # Period
+  cos $_[0] * 2*pi() / $T;
 }
 
 # Other functions
 
 #- Generates a saw wave
-sub saw($) {
+sub saw($;@) {
+  # TODO: handle period
   2 * ($_[0] - floor($_[0])) - 1;
 }
 
 #- Generates meander (pulse)
-sub meander_5_5($) {
+sub meander_5_5($;@) {
+  # TODO: handle period
   saw($_[0]) - saw($_[0] - 0.5);
 }
 
 #- Generates meander (pulse)
-sub meander_3_7($) {
+sub meander_3_7($;@) {
+  # TODO: handle period
   saw($_[0]) - saw($_[0] - 0.3);
 }
 
 #- Generates triangle wave
-sub triangle($) {
+sub triangle($;@) {
+  # TODO: handle period
   ($_[0] -
     2 * floor(($_[0] + 1) / 2)
   ) *
@@ -80,13 +89,13 @@ sub triangle($) {
 #
 # Example of usage:
 #
-# generator { $state += 3 } 'f', +666;
+# generator { $state += 3 } 'f', 666;
 #
 # will be translated in next equivalent code:
 #
 # {
 #   my $state = 666;
-#   sub f(\$) {
+#   sub f(;$) {
 #     return $state = 666 if defined $_[0];
 #     $state += 3;
 #   }
@@ -103,8 +112,9 @@ sub triangle($) {
 # arg2: initial generator's value
 no strict "refs";
 our $state;
-sub generator(&$$) {
+sub generator(&$;$) {
   my ($code, $name, $init) = @_;
+  $init //= 0;
 
   # Create global reference to function with given $name
   *$name = sub {
@@ -130,7 +140,7 @@ use strict "refs";
 # ret: next angle value
 generator {
   (pi() * ($state++) ) / 180;
-} 'even_rad', +0;
+} 'even_rad';
 
 # Gives sequence of floating point numbers with step = 0.1
 #
@@ -139,21 +149,34 @@ generator {
 # ret: next value
 generator {
   $state += 0.1;
-} 'even', +0;
+} 'even';
+
 
 ### main routine
 
-# default arguments values
-our %CFG = (
-   period => 6
-);
-# parse arguments, if any
-for (@ARGV) {
-   $CFG{period} = $1 if /-p(\d+)/;
-}
+die "Usage: $0 <wave> [period]" unless @ARGV >= 1 && @ARGV <= 2;
 
-#tabulate \&sin,         \&even_rad, 5*2*pi();
-tabulate \&cos,         \&even_rad, 5*2*pi();
+my ($wave, $period) = @ARGV;
+$period //= 1;
+
+die 'Period must be grater than 0' unless ($period = int $period) > 0;
+
+open THIS, '<', $0 or die $!;
+my %waves = ();
+my $previous = '';
+for (<THIS>) {
+  chomp;
+  $waves{s/sub ([^(]+).*/$1/r} = 1 if ($previous =~ /^\#- Generates/);
+  $previous = $_;
+}
+close THIS;
+
+die "Waves:\n\t" . join "\n\t", keys %waves unless defined $waves{$wave};
+
+eval "tabulate \\&$wave, \\&even, 5*2*pi(), $period";
+
+#tabulate \&sin,         \&even, 5*2*pi(), 5;
+#tabulate \&cos,         \&even_rad, 5*2*pi();
 #tabulate \&saw,         \&even,     100;
 #tabulate \&meander_5_5, \&even,     100;
 #tabulate \&meander_3_7, \&even,     10;
