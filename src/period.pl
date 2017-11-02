@@ -89,7 +89,7 @@ sub stddev($$) {
     $meanxx /= $n;
     $meanx  /= $n;
 
-    sqrt( $meanxx - $meanx ** 2 );
+    sqrt( abs($meanxx - $meanx ** 2) );
 }
 
 # evaluate Pearson correlation coefficient for two parts of @normalized_data
