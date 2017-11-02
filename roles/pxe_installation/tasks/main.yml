@@ -1,11 +1,11 @@
 ---
 
 - name: install packages
-  apt: update_cache=yes namer:= " {{ item }} "
+  apt: name={{ item}} update_cache=yes 
   with_items:
     - "tftpd-hpa"
     - "nginx"
-    - "isc-dhcp-sever" 
+    - "isc-dhcp-server" 
     - "syslinux"
 
 - name: get net inst
@@ -16,7 +16,7 @@
 
 - name: copy modules
   copy: 
-    src: " {{ item }} "  
+    src: "{{ item }}"  
     dest: /srv/tftp
     remote_src: yes
   with_items:
@@ -29,15 +29,27 @@
   template: src=dhcpd.conf.j2 dest=/etc/dhcp/dhcpd.conf
   notify: restart isc-dhcp-server
 
+- name: create pxe dir
+  file:
+    path: /export/pxe
+    state: directory
+    mode: 0755
+
 - name: configure ngnix
   template: src=nginx.cfg.j2 dest=/etc/nginx/sites-available/default
   notify: restart nginx
 
+- name: add preseed
+  template: src=deb-pres.cfg.j2 dest=/export/pxe/deb-pres.cfg
+  notify: restart nginx
+
+- name: delete symb link
+  file:
+    path: /srv/tftp/pxelinux.cfg
+    state: absent
+
 - name: delete symb links
-  copy:
-    src: " {{ item }} "
-    dest: /srv/tftp
-    remote_src: yes
+  command: cp -r {{ item }} /srv/tftp
   with_items:
     - "/srv/tftp/debian-installer/amd64/pxelinux.0"
     - "/srv/tftp/debian-installer/amd64/pxelinux.cfg"

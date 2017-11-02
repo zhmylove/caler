@@ -102,6 +102,15 @@
     when: not ssh_key_file.stat.exists
     delegate_to: 127.0.0.1
 
+  - name: deploy ssh keys
+    authorized_key:
+      user: oneadmin
+      state: present
+      key: "{{ lookup('file', '/var/lib/one/.ssh/id_rsa.pub') }}"
+
+  - name: add host to known_hosts
+    shell: "ssh-keyscan $HOSTNAME >> ~/.ssh/known_hosts"
+
   - name: create passwd dir
     file: path=/var/lib/one/.one state=directory
 

@@ -1,0 +1,17 @@
+---
+
+- block:
+  - name: copy script
+    copy: src=vm_init.sh dest=/var/lib/one/vm_init.sh mode=0770
+
+  - name: copy net conf
+    copy: src=vnet1.conf dest=/var/lib/one/vnet1.conf mode=0644
+
+  - name: copy template
+    copy: src=template.tmpl dest=/var/lib/one/template.tmpl mode=0644
+
+  - name: exec script
+    shell: /var/lib/one/vm_init.sh
+    
+  become: yes
+  become_user: oneadmin 
