@@ -159,7 +159,8 @@ die "Usage: $0 <wave> [period]" unless @ARGV >= 1 && @ARGV <= 2;
 my ($wave, $period) = @ARGV;
 $period //= 1;
 
-die 'Period must be grater than 0' unless ($period = int $period) > 0;
+die 'Period must be grater than 0' unless (
+  $period = sprintf '%f', $period) > 0;
 
 open THIS, '<', $0 or die $!;
 my %waves = ();
