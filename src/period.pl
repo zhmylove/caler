@@ -10,18 +10,18 @@ binmode STDOUT, ':utf8';
 
 use Data::Dumper;
 
+## User variables
+
+my $threshold = 0.95;     # correlanion threshold
+
+my $_DEBUG = 1;           # debug level
+
+## System variables
 my $count = 0;
 my $normalized_count = 0; # same as normalized_time
 my @data;
 my @normalized_data;
-my %PT; # period table
-
-my $_DEBUG = 0;
-
-# print debug message if $_DEBUG
-sub debug {
-   print STDERR Dumper(@_) if $_DEBUG;
-}
+my %PT;                   # period table
 
 # evaluate covariance for two parts of @normalized_data slice
 #
@@ -107,10 +107,15 @@ sub stddev($$) {
 sub correlate_arrays($$$) {
    my ($n, $idx1, $idx2) = @_;
 
-   print STDERR "correlate_arrays( $n, $idx1, $idx2 )\n" if $_DEBUG;
+   print STDERR "correlate_arrays( $n, $idx1, $idx2 )\n" if $_DEBUG > 5;
 
    my $stddev1 = stddev($n, $idx1);
    my $stddev2 = stddev($n, $idx2);
+   print STDERR " stddev: ($stddev1) ($stddev2)\n" if $_DEBUG > 5;
+
+   if ($stddev1 == 0 && $stddev2 == 0) {
+      return 1 if $normalized_data[$idx1] == $normalized_data[$idx2];
+   }
 
    return -0 if abs($stddev1 * $stddev2) < 0.00000001;
 
@@ -123,20 +128,35 @@ sub correlate_arrays($$$) {
 sub calculate_period($) {
    my ($time) = @_;
 
-   $time++;
    return if $time % 2;
-   print STDERR "calculate_period( $time )\n" if $_DEBUG;
+   print STDERR "calculate_period( $time )\n" if $_DEBUG > 4;
 
    # calculate correlation for two parts
-   my $r = correlate_arrays( $time / 2, 0, $time / 2 );
-   # print "$r\n";
+   my $r = correlate_arrays( $time / 2, 1, 1 + $time / 2 );
+   print "Correlation: $r\n" if $_DEBUG > 4;
 
-   $PT{ $time / 2 }++ if $r > 0.95;
+   $PT{ $time / 2 }++ if $r > $threshold;
 }
 
 # iterate over the PT and check every periods
 sub check_periods($) {
    my ($time) = @_;
+
+   print STDERR "check_periods( $time )\n" if $_DEBUG > 3;
+
+   for my $key (keys %PT) {
+      next if $time == 2 * $key;
+      next if $time % $key;
+
+      my $r = correlate_arrays( $key, 1 + $time - 2 * $key, 1 + $time - $key );
+      print STDERR " check: time=$time key=$key r=$r\n" if $_DEBUG > 3;
+
+      if ($r > $threshold) {
+         $PT{$key}++;
+      } else {
+         delete $PT{$key};
+      }
+   }
 }
 
 # add new value to normalized table
@@ -156,6 +176,7 @@ sub add_normalized($$) {
    }
 
    calculate_period($time) if $time > 0;
+   check_periods($time);
 }
 
 # main routine
@@ -173,9 +194,12 @@ while (defined($_ = <>)) {
    $data[$count++] = { $time => $value };
    add_normalized($time, $value);
 
-   debug(\@data);
-   debug(\@normalized_data);
+   print STDERR Dumper(\@data) if $_DEBUG > 10;
+   print STDERR Dumper(\@normalized_data) if $_DEBUG > 8;
+   print STDERR Dumper(\%PT) if $_DEBUG > 7;
 }
 
-$, = "\n";
-print STDERR sort {$a <=> $b} keys %PT;
+$\ = "\n";
+#print for sort {$a <=> $b} keys %PT;
+print $_ / 1 . " $PT{$_}" for sort {$a <=> $b} keys %PT;
+#print Dumper(\%PT);
