@@ -7,6 +7,6 @@ PERIODS="2 3 4 5 6 8 10 12"
 perl -0l12ne 'print for /#- Generates.*?sub ([^\s(]+)/gs' "$WAVEGEN" |
 while read sub ;do
    for PERIOD in $PERIODS ;do
-      "$WAVEGEN" "$sub" "$PERIOD" # > FILENAME_GOES_HERE
+      "$WAVEGEN" "$sub" "-p$PERIOD" "-s50" # > FILENAME_GOES_HERE
    done
 done

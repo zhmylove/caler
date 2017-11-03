@@ -154,13 +154,28 @@ generator {
 
 ### main routine
 
-die "Usage: $0 <wave> [period]" unless @ARGV >= 1 && @ARGV <= 2;
+my $USAGE = "Usage: $0 <wave> [-p<period>] [-s<stop_time>]";
+die $USAGE unless @ARGV >= 1;
 
-my ($wave, $period) = @ARGV;
-$period //= 1;
+our %CFG = (
+  wave   => shift @ARGV, # wave type (sin, saw, etc)
+  period => 1,           # wave period (TODO: parametrize waves)
+  stop   => 32,          # tabulating stop time
+);
+
+for (@ARGV) {
+  given ($_) {
+    $CFG{period} = $1 when /-p(\d+)/;
+    $CFG{stop}   = $1 when /-s(\d+)/;
+    default      { die $USAGE; }
+  }
+}
 
 die 'Period must be grater than 0' unless (
-  $period = sprintf '%f', $period) > 0;
+  $CFG{period} = sprintf '%f', $CFG{period}) > 0;
+
+die 'Stop time must be grater than 0' unless (
+  $CFG{stop} = sprintf '%f', $CFG{stop}) > 0;
 
 open THIS, '<', $0 or die $!;
 my %waves = ();
@@ -172,9 +187,9 @@ for (<THIS>) {
 }
 close THIS;
 
-die "Waves:\n\t" . join "\n\t", keys %waves unless defined $waves{$wave};
+die "Waves:\n\t" . join "\n\t", keys %waves unless defined $waves{$CFG{wave}};
 
-eval "tabulate \\&$wave, \\&even, 5*2*pi(), $period";
+eval "tabulate \\&$CFG{wave}, \\&even, $CFG{stop}, $CFG{period}";
 
 #tabulate \&sin,         \&even, 5*2*pi(), 5;
 #tabulate \&cos,         \&even_rad, 5*2*pi();
