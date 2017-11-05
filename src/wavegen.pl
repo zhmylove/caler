@@ -44,13 +44,13 @@ sub tabulate($$$;@) {
 # Built-in functions wrappers. Needed because we can't take a reference to 'em.
 #- Generates sin
 sub sin($;@) {
-  my $T = $_[1]; # Period
+  my $T = $_[1] // 1; # Period
   sin $_[0] * 2*pi() / $T;
 }
 
 #- Generates cos
 sub cos($;@) {
-  my $T = $_[1]; # Period
+  my $T = $_[1] // 1; # Period
   cos $_[0] * 2*pi() / $T;
 }
 
@@ -58,29 +58,35 @@ sub cos($;@) {
 
 #- Generates a saw wave
 sub saw($;@) {
-  # TODO: handle period
-  2 * ($_[0] - floor($_[0])) - 1;
+  my ($x, $T) = @_;
+  $T //= 1;
+  2 * (
+    $x / $T - floor(0.5 + $x / $T)
+  );
 }
 
 #- Generates meander (pulse)
 sub meander_5_5($;@) {
-  # TODO: handle period
-  saw($_[0]) - saw($_[0] - 0.5);
+  ::sin($_[0], $_[1]) < 0 ? 0 : 1;
 }
 
 #- Generates meander (pulse)
 sub meander_3_7($;@) {
-  # TODO: handle period
-  saw($_[0]) - saw($_[0] - 0.3);
+  sub sign($$) {
+    ($_[0] / $_[1]) < 0.7 ? 1 : 0;
+  }
+
+  my ($x, $T) = @_;
+  $T //= 1;
+  $x -= $T while $x > $T;
+
+  sign $x, $T;
 }
 
 #- Generates triangle wave
 sub triangle($;@) {
-  # TODO: handle period
-  ($_[0] -
-    2 * floor(($_[0] + 1) / 2)
-  ) *
-  (-1) ** floor(($_[0] + 1) / 2);
+  my ($x, $T) = @_;
+  abs saw $x, $T // 1;
 }
 
 # Argument generators
