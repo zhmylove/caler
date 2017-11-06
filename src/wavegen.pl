@@ -13,6 +13,13 @@ use Data::Dumper;
 
 my $_DEBUG = 1;
 
+our %CFG = (
+  wave   => shift @ARGV, # wave type (sin, saw, etc)
+  period => 1,           # wave period (TODO: parametrize waves)
+  stop   => 32,          # tabulating stop time
+  rnd    => 0,           # random coefficient, normalized randomizing amplitude
+);
+
 # avoid Math::Trig problems
 sub pi { 3.141592653589793238462643383279 }
 
@@ -29,13 +36,19 @@ sub debug {
 # arg2: terminator
 # args: arg0's arguments
 sub tabulate($$$;@) {
+  sub randomize($) {
+    return $_[0] if $CFG{rnd} < 1e-5;
+    $_[0] + rand(abs $_[0]*$CFG{rnd}) - $_[0] * $CFG{rnd} / 2;
+  }
+
   my ($f, $g, $t) = @_;
   debug $f, $g, $t;
 
   @_ = splice @_, 3;
 
   my $i;
-  print "$i @{[&$f($i, @_)]}\n" while (($i = &$g()) // $t) < $t;
+  my $randomize = \&randomize;
+  print "$i @{[&$randomize(&$f($i, @_))]}\n" while (($i = &$g()) // $t) < $t;
 
   # Reset the generator
   &$g(0);
@@ -160,19 +173,14 @@ generator {
 
 ### main routine
 
-my $USAGE = "Usage: $0 <wave> [-p<period>] [-s<stop_time>]";
+my $USAGE = "Usage: $0 <wave> [-p<period>] [-s<stop_time>] [-r<rand_coef>]";
 die $USAGE unless @ARGV >= 1;
-
-our %CFG = (
-  wave   => shift @ARGV, # wave type (sin, saw, etc)
-  period => 1,           # wave period (TODO: parametrize waves)
-  stop   => 32,          # tabulating stop time
-);
 
 for (@ARGV) {
   given ($_) {
-    $CFG{period} = $1 when /-p(\d+)/;
-    $CFG{stop}   = $1 when /-s(\d+)/;
+    $CFG{period} = $1 when /-p(\d+\.?\d*)/;
+    $CFG{stop}   = $1 when /-s(\d+\.?\d*)/;
+    $CFG{rnd}    = $1 when /-r(\d+\.?\d*)/;
     default      { die $USAGE; }
   }
 }
@@ -182,6 +190,9 @@ die 'Period must be grater than 0' unless (
 
 die 'Stop time must be grater than 0' unless (
   $CFG{stop} = sprintf '%f', $CFG{stop}) > 0;
+
+die 'Randomizing coefficient must not be less than 0' if (
+  $CFG{rnd} = sprintf '%f', $CFG{rnd}) < 0;
 
 open THIS, '<', $0 or die $!;
 my %waves = ();
