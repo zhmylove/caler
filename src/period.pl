@@ -12,10 +12,10 @@ use Data::Dumper;
 
 ## User variables
 
-my $corr_threshold = 0.9999;  # correlanion threshold
+my $corr_threshold = 0.8999;  # correlanion threshold
 my $conv_threshold = 3;       # convolution_threshold
 
-my $_DEBUG = 0;               # debug level
+my $_DEBUG = $ENV{_D} // 0;   # debug level
 
 ## System variables
 my $count = 0;                # same as time
@@ -213,7 +213,15 @@ while (defined($_ = <>)) {
    $data[$count++] = { $time => $value };
    add_normalized($time, $value);
 
-   $period = (sort { $PT{$b} <=> $PT{$a} } keys %PT)[0] // 0;
+   my $max = $PT{ (sort { $PT{$b} <=> $PT{$a} } keys %PT)[0] // 0 };
+   if (defined $max) {
+      my @max = sort { $a <=> $b } grep { $PT{$_} == $max } keys %PT;
+
+      print "median: {@max}\n" if $_DEBUG > 1;
+
+      $period = $max[$#max / 2] // 0; # median
+      #TODO wrap around even median (@max) number of elements
+   }
 
    print STDERR Dumper(\@data) if $_DEBUG > 10;
    print STDERR Dumper(\@normalized_data) if $_DEBUG > 8;
@@ -244,6 +252,14 @@ for (sort {$a <=> $b} keys %PT) {
 $periods{$mean}=$N;
 print STDERR Dumper(\%periods) if $_DEBUG > 0;
 
+my $offline_max = (sort { $b <=> $a } values %periods)[0] // 0;
+my $period_offline = (
+   sort { $a <=> $b } grep { $periods{$_} == $offline_max } keys %periods
+)[0] // 0;
+
 # results
 $period = $time[$period - 1] if $CFG{notime};
-print "$period\n";
+$period_offline = $time[$period_offline - 1] if $CFG{notime};
+
+print "On-line: $period\n";
+print "Off-line: $period_offline\n";
