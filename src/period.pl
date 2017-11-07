@@ -82,6 +82,7 @@ sub stddev($$) {
 
     my ($meanx, $meanxx) = (0, 0);
 
+    #TODO add optimization with indexed sums (0 < i)
     for (my $i = 0; $i < $n; ++$i) {
         my $x_idx = $idx + $i;
 

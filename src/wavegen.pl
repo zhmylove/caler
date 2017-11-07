@@ -18,6 +18,7 @@ our %CFG = (
   period => 1,           # wave period (TODO: parametrize waves)
   stop   => 32,          # tabulating stop time
   rnd    => 0,           # random coefficient, normalized randomizing amplitude
+  amp    => 0,           # amplitude shift coefficient
 );
 
 # avoid Math::Trig problems
@@ -48,7 +49,9 @@ sub tabulate($$$;@) {
 
   my $i;
   my $randomize = \&randomize;
-  print "$i @{[&$randomize(&$f($i, @_))]}\n" while (($i = &$g()) // $t) < $t;
+  print "$i @{[&$randomize(&$f($i, @_)) + $CFG{amp}]}\n" while (
+     (($i = &$g()) // $t) < $t
+  );
 
   # Reset the generator
   &$g(0);
@@ -173,14 +176,16 @@ generator {
 
 ### main routine
 
-my $USAGE = "Usage: $0 <wave> [-p<period>] [-s<stop_time>] [-r<rand_coef>]";
+my $USAGE = "Usage: $0 <wave> [-p<period>] [-s<stop_time>] [-r<rand_coef>] ";
+$USAGE .= "[-a<amplitude_shift>]";
 die $USAGE unless @ARGV >= 1;
 
 for (@ARGV) {
   given ($_) {
-    $CFG{period} = $1 when /-p(\d+\.?\d*)/;
-    $CFG{stop}   = $1 when /-s(\d+\.?\d*)/;
-    $CFG{rnd}    = $1 when /-r(\d+\.?\d*)/;
+    $CFG{period} = $1 when /-p(\d+\.?\d*)$/;
+    $CFG{stop}   = $1 when /-s(\d+\.?\d*)$/;
+    $CFG{rnd}    = $1 when /-r(\d+\.?\d*)$/;
+    $CFG{amp}    = $1 when /-a(-?\d+\.?\d*)$/;
     default      { die $USAGE; }
   }
 }
