@@ -48,8 +48,7 @@ sub tabulate($$$;@) {
   @_ = splice @_, 3;
 
   my $i;
-  my $randomize = \&randomize;
-  print "$i @{[&$randomize(&$f($i, @_)) + $CFG{amp}]}\n" while (
+  print "$i @{[randomize(&$f($i, @_)) + $CFG{amp}]}\n" while (
      (($i = &$g()) // $t) < $t
   );
 
@@ -178,7 +177,7 @@ generator {
 
 my $USAGE = "Usage: $0 <wave> [-p<period>] [-s<stop_time>] [-r<rand_coef>] ";
 $USAGE .= "[-a<amplitude_shift>]";
-die $USAGE unless @ARGV >= 1;
+die $USAGE unless defined $CFG{wave};
 
 for (@ARGV) {
   given ($_) {

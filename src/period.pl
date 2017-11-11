@@ -8,6 +8,9 @@ no warnings 'experimental';
 use utf8;
 binmode STDOUT, ':utf8';
 
+use lib '.';
+use psum;
+
 use Data::Dumper;
 
 ## User variables
@@ -26,6 +29,8 @@ my @time;                     # buf for actual time (see notime)
 my %PT;                       # period table
 my %CFG;                      # parameters of the script
 my $period = 0;               # evaluated period
+my $sums = psum->new();       # prefix sums for just sum
+my $squares = psum->new();    # prefix sums for sums of squares
 
 # evaluate covariance for two parts of @normalized_data slice
 #
@@ -41,18 +46,10 @@ my $period = 0;               # evaluated period
 sub cov($$$) {
     my ($n, $idx1, $idx2) = @_;
 
-    my ($meanx, $meany) = (0, 0);
-
-    for (my $i = 0; $i < $n; ++$i) {
-        my $x_idx = $idx1 + $i;
-        my $y_idx = $idx2 + $i;
-
-        $meanx += $normalized_data[$x_idx];
-        $meany += $normalized_data[$y_idx];
-    }
-    $meanx /= $n;
-    $meany /= $n;
-
+    my ($meanx, $meany) = (
+      $sums->sum($idx1+$n-1, $idx1-1) / $n,
+      $sums->sum($idx2+$n-1, $idx2-1) / $n,
+    );
 
     my $cv = 0;
 
@@ -80,18 +77,10 @@ sub cov($$$) {
 sub stddev($$) {
     my ($n, $idx) = @_;
 
-    my ($meanx, $meanxx) = (0, 0);
-
-    #TODO add optimization with indexed sums (0 < i)
-    for (my $i = 0; $i < $n; ++$i) {
-        my $x_idx = $idx + $i;
-
-        $meanxx += $normalized_data[$x_idx] ** 2;
-        $meanx  += $normalized_data[$x_idx];
-    }
-
-    $meanxx /= $n;
-    $meanx  /= $n;
+    my ($meanxx, $meanx) = (
+      $squares->sum($idx+$n-1, $idx-1) / $n,
+      $sums->sum($idx+$n-1, $idx-1) / $n,
+    );
 
     sqrt( abs($meanxx - $meanx ** 2) );
 }
@@ -171,11 +160,19 @@ sub add_normalized($$) {
    my $previous = $normalized_data[$normalized_count - 1] // $value;
 
    my $step = (  $value - $previous ) / ( $time - $normalized_count + 1 );
-
+  
    while ($normalized_count <= $time) {
       $normalized_data[$normalized_count] = (
          $normalized_data[$normalized_count - 1] || $value
       ) + $step;
+
+      $sums->add($normalized_data[$normalized_count]);
+      $squares->add($normalized_data[$normalized_count]**2);
+      if ($normalized_count > 2 && $normalized_count % 2 == 0) {
+        # TODO: check, delete #, recount indexes above
+        #$sums->shift;
+        #$squares->shift;
+      }
 
       calculate_period($normalized_count) if $normalized_count > 0;
       check_periods($normalized_count);
