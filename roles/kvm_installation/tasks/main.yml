@@ -8,8 +8,18 @@
   apt: name=bridge-utils state=latest
   become: yes
 
-- name: copy script
+- name: install netfilter
+  apt: name=netfilter-persistent state=latest
+
+- name: copy  bridge script
   copy: src=bridge_setup.sh dest=/var/lib/one/bridge_setup.sh mode=0770
+
+- name: copy nat script
+  copy: src=nat_setup.sh dest=/var/lib/one/nat_setup.sh mode=0770 
 
 - name: start script
   shell: /var/lib/one/bridge_setup.sh
+
+- name: start nat script
+  shell: /var/lib/one/nat_setup.sh
+  notify: restart net

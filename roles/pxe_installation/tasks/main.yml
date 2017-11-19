@@ -24,9 +24,9 @@
     - "/usr/lib/syslinux/modules/bios/libcom32.c32"
     - "/usr/lib/syslinux/modules/bios/libutil.c32"
     - "/usr/lib/syslinux/modules/bios/menu.c32"
-    
+
 - name: configure isc-dhcp-server
-  template: src=dhcpd.conf.j2 dest=/etc/dhcp/dhcpd.conf
+  template: src=dhcpd.conf.j2 dest=/etc/dhcp/dhcpd.conf mode=0644
   notify: restart isc-dhcp-server
 
 - name: create pxe dir
@@ -48,6 +48,11 @@
     path: /srv/tftp/pxelinux.cfg
     state: absent
 
+- name: delete symb link_1
+  file:
+    path: /srv/tftp/pxelinux.0
+    state: absent
+
 - name: delete symb links
   command: cp -r {{ item }} /srv/tftp
   with_items:
@@ -56,4 +61,5 @@
 
 - name: configure pxe
   template: src=pxe.cfg.j2 dest=/srv/tftp/pxelinux.cfg/default
+  notify: restart nginx
 

@@ -1,7 +1,20 @@
 ---
 
+- name: Add apt keys
+  apt_key:
+    data: "{{ lookup('file', item) }}"
+  with_fileglob:
+    - "apt_keys/*"
+
+- name: install sshd
+  apt: update_cache=yes name=openssh-server state=latest
+
+- name: configure sshd
+  copy: src=sshd_config dest=/etc/ssh/sshd_config mode=0755
+  notify: restart sshd
+
 - name: install haproxy
-  apt: update_cache=yes name=haproxy state=latest
+  apt: name=haproxy state=latest
 
 - name: init add script
   copy: src=haproxy-add dest=/usr/local/bin/haproxy-add mode=0755

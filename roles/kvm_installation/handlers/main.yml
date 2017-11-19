@@ -2,3 +2,6 @@
 
 - name: restart libvirtd
   service: name=libvirtd state=restarted
+
+- name: restart net
+  service: name=networking state=restarted

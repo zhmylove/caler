@@ -3,15 +3,6 @@
 - name: install isc-dhcp-server
   apt: update_cache=yes name=isc-dhcp-server state=latest
 
-- name: set interface
-  lineinfile:
-  dest=/etc/default/isc-dhcp-server
-  backup=yes
-  regexp="^INTERFACES=\"\""
-  line="INTERFACES=\"eth1\""
-  notify: restart isc-dhcp-server
-
-
 - name: configure isc-dhcp-server
   template: src=dhcpd.conf.j2 dest=/etc/dhcp/dhcpd.conf
   notify: restart isc-dhcp-server
