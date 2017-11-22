@@ -34,7 +34,7 @@ my $squares = psum->new();    # prefix sums for sums of squares
 
 # evaluate covariance for two parts of @normalized_data slice
 #
-# cov(X, Y) = E[(X - E(X)) * (Y - E(Y))] ,
+# cov(N, X, Y) = sum[(X - E(X)) * (Y - E(Y))] / N,
 #
 # where E(X) is expected value of X.
 #
@@ -46,22 +46,26 @@ my $squares = psum->new();    # prefix sums for sums of squares
 sub cov($$$) {
     my ($n, $idx1, $idx2) = @_;
 
-    my ($meanx, $meany) = (
-      $sums->sum($idx1+$n-1, $idx1-1) / $n,
-      $sums->sum($idx2+$n-1, $idx2-1) / $n,
+    my ($sumx, $sumy) = (
+      $sums->sum($idx1 + $n - 1, $idx1 - 1),
+      $sums->sum($idx2 + $n - 1, $idx2 - 1),
     );
 
-    my $cv = 0;
+    my ($meanx, $meany) = (
+      $sumx / $n,
+      $sumy / $n,
+    );
+
+    my $cov = 0;
 
     for (my $i = 0; $i < $n; ++$i) {
-        my $x_idx = $idx1 + $i;
-        my $y_idx = $idx2 + $i;
-
-        $cv += (($normalized_data[$x_idx] - $meanx) *
-            ($normalized_data[$y_idx] - $meany));
+        $cov += $normalized_data[$idx1++] *
+            $normalized_data[$idx2++];
     }
 
-    $cv /= $n;
+    $cov += $meanx * $meany * $n - $meany * $sumx - $meanx * $sumy;
+
+    $cov /= $n;
 }
 
 # evaluate standard deviation for @normalized_data slice
@@ -78,8 +82,8 @@ sub stddev($$) {
     my ($n, $idx) = @_;
 
     my ($meanxx, $meanx) = (
-      $squares->sum($idx+$n-1, $idx-1) / $n,
-      $sums->sum($idx+$n-1, $idx-1) / $n,
+      $squares->sum($idx + $n - 1, $idx - 1) / $n,
+      $sums->sum($idx + $n - 1, $idx - 1) / $n,
     );
 
     sqrt( abs($meanxx - $meanx ** 2) );
@@ -172,6 +176,7 @@ sub add_normalized($$) {
         # TODO: check, delete #, recount indexes above
         #$sums->shift;
         #$squares->shift;
+        # perform shift every even time and use $arr[0] and $arr[$#arr]
       }
 
       calculate_period($normalized_count) if $normalized_count > 0;
@@ -229,7 +234,15 @@ while (defined($_ = <>)) {
 
 die "No data mined!\n" unless keys %PT;
 
-print STDERR Dumper(\%PT) if $_DEBUG > 0;
+if ($_DEBUG > 0) {
+   for (sort { $PT{$b} <=> $PT{$a} } keys %PT) {
+      if ($CFG{notime}) {
+         print STDERR "($time[$_ - 1]) ($time[$_]) $_ => $PT{$_}\n"
+      } else {
+         print STDERR "$_ => $PT{$_}\n"
+      }
+   }
+}
 
 # Off-line analysis: convolution of the results, in case of too many of them
 my ($prev, $mean, $N, %periods) = (0, 0);
