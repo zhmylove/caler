@@ -191,8 +191,12 @@ sub add_normalized($$) {
 while (defined ($_ = $ARGV[0])) {
    last if /^[^-]/ || (/^--$/ && shift);
 
-   $CFG{notime} = 1 if /^-notime$/ || /^-nt$/;
-   $CFG{fast}   = 1 if /^-fast$/ || /^-f$/;
+   my $valid = 0;
+
+   $valid++, $CFG{notime} = 1 if /^-notime$/ || /^-nt$/;
+   $valid++, $CFG{fast}   = 1 if /^-fast$/ || /^-f$/;
+
+   die "Invalid key specified: $_\n" unless $valid;
 
    shift;
 }
