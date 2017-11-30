@@ -299,4 +299,5 @@ $period = $time[$period - 1] if $CFG{notime};
 $period_offline = $time[$period_offline - 1] if $CFG{notime};
 
 print "On-line: $period\n";
+printf "Rounded On-line: %.0f\n", $period;
 print "Off-line: $period_offline\n";

@@ -9,6 +9,6 @@ while read sub ;do
    for period in $PERIODS ;do
       printf " == %16s(%2d) ==> " "$sub" "$period"
       "$WAVEGEN" "$sub" "-p$period" "-s50" 2>/dev/null |
-      "$PERIOD" -nt -f | awk '/On/{print $2}' # > FILENAME_GOES_HERE
+      "$PERIOD" -nt -f | awk '/Round/{print $3}' # > FILENAME_GOES_HERE
    done
 done
