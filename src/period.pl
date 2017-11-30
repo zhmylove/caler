@@ -133,7 +133,7 @@ sub calculate_period($) {
    my $r = correlate_arrays( $time / 2, 1, 1 + $time / 2 );
    print STDERR "Correlation: $r\n" if $_DEBUG > 4;
 
-   $PT{ $time / 2 }++ if $r > $corr_threshold;
+   $PT{ $time / 2 } += $r if $r > $corr_threshold;
 }
 
 # iterate over the PT and check every periods
