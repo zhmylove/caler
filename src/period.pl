@@ -192,6 +192,7 @@ while (defined ($_ = $ARGV[0])) {
    last if /^[^-]/ || (/^--$/ && shift);
 
    $CFG{notime} = 1 if /^-notime$/ || /^-nt$/;
+   $CFG{fast}   = 1 if /^-fast$/ || /^-f$/;
 
    shift;
 }
@@ -216,6 +217,10 @@ while (defined($_ = <>)) {
    $data[$count++] = { $time => $value };
    add_normalized($time, $value);
 
+   # just skip period estimation until the end of stdin
+   next if ($CFG{fast});
+
+   # period estimation at the current time
    my $max = $PT{ (sort { $PT{$b} <=> $PT{$a} } keys %PT)[0] // 0 };
    if (defined $max) {
       my @max = sort { $a <=> $b } grep { $PT{$_} == $max } keys %PT;
@@ -230,6 +235,23 @@ while (defined($_ = <>)) {
    print STDERR Dumper(\@normalized_data) if $_DEBUG > 8;
    print STDERR Dumper(\%PT) if $_DEBUG > 7;
    print STDERR "= [$time] period = $period\n" if $_DEBUG > 2;
+}
+
+if ($CFG{fast}) {
+   my $max = $PT{ (sort { $PT{$b} <=> $PT{$a} } keys %PT)[0] // 0 };
+   if (defined $max) {
+      my @max = sort { $a <=> $b } grep { $PT{$_} == $max } keys %PT;
+
+      print "median: {@max}\n" if $_DEBUG > 1;
+
+      $period = $max[$#max / 2] // 0; # median
+      #TODO wrap around even median (@max) number of elements
+   }
+
+   print STDERR Dumper(\@data) if $_DEBUG > 10;
+   print STDERR Dumper(\@normalized_data) if $_DEBUG > 8;
+   print STDERR Dumper(\%PT) if $_DEBUG > 7;
+   print STDERR "= [END] period = $period\n" if $_DEBUG > 2;
 }
 
 die "No data mined!\n" unless keys %PT;
