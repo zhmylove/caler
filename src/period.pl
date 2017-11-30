@@ -15,7 +15,7 @@ use Data::Dumper;
 
 ## User variables
 
-my $corr_threshold = 0.8999;  # correlanion threshold
+my $corr_threshold = 0.8;     # correlanion threshold
 my $conv_threshold = 3;       # convolution_threshold
 
 my $_DEBUG = $ENV{_D} // 0;   # debug level
@@ -150,7 +150,7 @@ sub check_periods($) {
       print STDERR " check: time=$time key=$key r=$r\n" if $_DEBUG > 3;
 
       if ($r > $corr_threshold) {
-         $PT{$key}++;
+         $PT{$key} += $r;
       } else {
          delete $PT{$key};
       }
