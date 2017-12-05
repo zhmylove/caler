@@ -11,7 +11,7 @@ binmode STDOUT, ':utf8';
 
 use Data::Dumper;
 
-my $_DEBUG = 1;
+my $_DEBUG = 0;
 
 our %CFG = (
   wave   => shift @ARGV, # wave type (sin, saw, etc)
@@ -104,6 +104,11 @@ sub triangle($;@) {
   abs saw $x, $T // 1;
 }
 
+#- Generates horizontal line
+sub line($;@) {
+  1;
+}
+
 # Argument generators
 
 # Small nice metaprogramming from korg.
@@ -171,7 +176,6 @@ generator {
 generator {
   $state += 0.1;
 } 'even';
-
 
 ### main routine
 
