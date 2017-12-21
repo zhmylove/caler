@@ -39,7 +39,7 @@ sub debug {
 sub tabulate($$$;@) {
   sub randomize($) {
     return $_[0] if $CFG{rnd} < 1e-5;
-    $_[0] = 0.01 if $_[0] == 0;
+    $_[0] = 0.00001 if $_[0] == 0;
     $_[0] + rand(abs $_[0]*$CFG{rnd}) - $_[0] * $CFG{rnd} / 2;
   }
 
@@ -175,7 +175,7 @@ generator {
 #
 # ret: next value
 generator {
-  $state += 0.1;
+  $state = sprintf "%.1f", $state + 0.1;
 } 'even';
 
 ### main routine

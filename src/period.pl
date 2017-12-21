@@ -163,7 +163,7 @@ sub add_normalized($$) {
 
    my $previous = $normalized_data[$normalized_count - 1] // $value;
 
-   my $step = (  $value - $previous ) / ( $time - $normalized_count + 1 );
+   my $step = ( $value - $previous ) / ( $time - $normalized_count + 1 );
   
    while ($normalized_count <= $time) {
       $normalized_data[$normalized_count] = (
@@ -261,11 +261,12 @@ if ($CFG{fast}) {
 die "No data mined!\n" unless keys %PT;
 
 if ($_DEBUG > 0) {
-   for (sort { $PT{$b} <=> $PT{$a} } keys %PT) {
+   for ((sort { $PT{$b} <=> $PT{$a} } keys %PT)[0..30]) {
       if ($CFG{notime}) {
-         print STDERR "($time[$_ - 1]) ($time[$_]) $_ => $PT{$_}\n"
+         print STDERR
+         "($time[$_ - 1]) (($time[$_])) ($time[$_ + 1]) $_ => $PT{$_}\n";
       } else {
-         print STDERR "$_ => $PT{$_}\n"
+         print STDERR "$_ => $PT{$_}\n";
       }
    }
 }
