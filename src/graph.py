@@ -10,4 +10,4 @@ for line in sys.stdin:
     points.append(line.split()), print(*points[-1])
 
 if 0 == os.fork():
-    p.legend(handles=[p.plot(*zip(*points), label='y = f(x)')[0]]), p.show()
+    p.legend(handles=[p.plot(*zip(*points), label='l = f(λ)')[0]]), p.show()

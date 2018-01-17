@@ -304,3 +304,21 @@ $period_offline = $time[$period_offline - 1] if $CFG{notime};
 print "On-line: $period\n";
 printf "Rounded On-line: %.0f\n", $period;
 print "Off-line: $period_offline\n";
+
+my ($fi, $m) = (0, 0);
+for my $t (0..$normalized_count-1) {
+  if (defined $time[$t]) {
+    my ($nt, $np) = ($time[$t] * 1000000, $period * 1000000);
+    {
+      use integer;
+      $np = $nt / $np;
+    }
+    next unless $time[$t] - $period * $np < 1e-6;
+    $fi += $normalized_data[$t];
+    ++$m;
+  }
+}
+$fi /= $m;
+my $A  = sqrt(2/$normalized_count * $squares->sum);
+print "f(t) = $A * sin(t*2*3.14/$period + $fi)\n";
+print "m = $m\n";

@@ -72,6 +72,11 @@ sub cos($;@) {
 
 # Other functions
 
+#- Generates sin wave with fi0 = 1.2
+sub sinp12($;@) {
+  8.4 * (CORE::sin $_[0] * 2*pi() / $_[1] + 0);
+}
+
 #- Generates a saw wave
 sub saw($;@) {
   my ($x, $T) = @_;
