@@ -201,6 +201,8 @@ while (defined ($_ = $ARGV[0])) {
    shift;
 }
 
+$corr_threshold = $ENV{_R} if $_DEBUG && defined $ENV{_R};
+
 # slurp stdin
 while (defined($_ = <>)) {
    chomp;
