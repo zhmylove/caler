@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 # made by: KorG
 
+use Math::Trig qw(asin pi rad2deg);
 use strict;
 use v5.18;
 use warnings;
@@ -305,20 +306,40 @@ print "On-line: $period\n";
 printf "Rounded On-line: %.0f\n", $period;
 print "Off-line: $period_offline\n";
 
-my ($fi, $m) = (0, 0);
-for my $t (0..$normalized_count-1) {
-  if (defined $time[$t]) {
-    my ($nt, $np) = ($time[$t] * 1000000, $period * 1000000);
-    {
-      use integer;
-      $np = $nt / $np;
-    }
-    next unless $time[$t] - $period * $np < 1e-6;
-    $fi += $normalized_data[$t];
-    ++$m;
-  }
+#for my $t (0..$normalized_count-1) {
+#  print STDERR "Time: $t $normalized_data[$t]\n";
+#  if (defined $time[$t] or not defined $CFG{notime}) {
+#    next unless not defined $CFG{notime} or defined $time[$t];
+#    my $time = defined($time[$t]) ? $time[$t] : $t;
+#    my ($nt, $np) = ($time * 1000000, $period * 1000000);
+#    {
+#      use integer;
+#      $np = $nt / $np;
+#    }
+#    next unless $time - $period * $np < 1e-6;
+#    $fi += $normalized_data[$t];
+#    print STDERR "$t $time $normalized_data[$t]\n";
+#    ++$m;
+#  }
+#}
+
+sub get_indexes {
+	map {$_[1]+$_} grep {!($_ % $_[0]) && $_ + $_[1] < $normalized_count} 
+  (0..$normalized_count-1)
 }
-$fi /= $m;
-my $A  = sqrt(2/$normalized_count * $squares->sum);
-print "f(t) = $A * sin(t*2*3.14/$period + $fi)\n";
-print "m = $m\n";
+
+my @lambdas = ();
+my $lambda_sq = 0;
+my $avg = $sums->sum() / $normalized_count;
+for my $i (0..$period) {
+  $lambdas[$i] = 0;
+  my @measurements = @normalized_data[get_indexes($period+2, $i)];
+  $lambdas[$i] += $_ for @measurements;
+  $lambdas[$i] /= @measurements;
+  $lambda_sq += $lambdas[$i]**2;
+  print STDERR "$i $lambdas[$i]\n";
+}
+
+my $A  = sqrt(2/$#lambdas * $lambda_sq);
+my $fi = rad2deg(asin($lambdas[0] / $A));
+print "lambda(t) = $A * sin(t*2*3.14/$period + $fi)\n";
