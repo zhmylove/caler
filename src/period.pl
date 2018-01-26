@@ -306,7 +306,7 @@ print "On-line: $period\n";
 printf "Rounded On-line: %.0f\n", $period;
 print "Off-line: $period_offline\n";
 
-$period = 80;
+$period = 80; # TODO: DELETE, needed by approximation for accuracy
 
 sub get_indexes {
 	map {$_[1]+$_} grep {!($_ % $_[0]) && $_ + $_[1] < $normalized_count} 
@@ -322,10 +322,8 @@ for my $i (0..$period) {
   $lambdas[$i] += $_ for @measurements;
   $lambdas[$i] /= @measurements;
   $lambda_mean += $lambdas[$i];
-  print STDERR "$i $lambdas[$i]\n";
 }
 $lambda_mean /= @lambdas;
-print "mean: $lambda_mean\n";
 
 my $lambda_sq = 0;
 $lambda_sq += ($_-$lambda_mean)**2 for @lambdas;
@@ -361,14 +359,7 @@ sub check_sine_approximation($) {
 }
 
 my ($c1,$c2) = (check_sine_approximation($fi1),check_sine_approximation($fi2));
-my ($correlation, $fi);
-if ($c1 > $c2) {
-  $correlation = $c1;
-  $fi = $fi1;
-} else {
-  $correlation = $c2;
-  $fi = $fi2;
-}
+my ($correlation, $fi) = ($c1 > $c2) ? ($c1, $fi1) : ($c2, $fi2);
 
 print "lambda(t) = $lambda_mean + $A * sin(t*2*3.14/$period + $fi)\n";
 print "Correlation: $correlation\n";
