@@ -306,22 +306,7 @@ print "On-line: $period\n";
 printf "Rounded On-line: %.0f\n", $period;
 print "Off-line: $period_offline\n";
 
-#for my $t (0..$normalized_count-1) {
-#  print STDERR "Time: $t $normalized_data[$t]\n";
-#  if (defined $time[$t] or not defined $CFG{notime}) {
-#    next unless not defined $CFG{notime} or defined $time[$t];
-#    my $time = defined($time[$t]) ? $time[$t] : $t;
-#    my ($nt, $np) = ($time * 1000000, $period * 1000000);
-#    {
-#      use integer;
-#      $np = $nt / $np;
-#    }
-#    next unless $time - $period * $np < 1e-6;
-#    $fi += $normalized_data[$t];
-#    print STDERR "$t $time $normalized_data[$t]\n";
-#    ++$m;
-#  }
-#}
+$period = 80;
 
 sub get_indexes {
 	map {$_[1]+$_} grep {!($_ % $_[0]) && $_ + $_[1] < $normalized_count} 
@@ -333,7 +318,7 @@ my $lambda_sq = 0;
 my $avg = $sums->sum() / $normalized_count;
 for my $i (0..$period) {
   $lambdas[$i] = 0;
-  my @measurements = @normalized_data[get_indexes($period+2, $i)];
+  my @measurements = @normalized_data[get_indexes($period, $i)];
   $lambdas[$i] += $_ for @measurements;
   $lambdas[$i] /= @measurements;
   $lambda_sq += $lambdas[$i]**2;
@@ -341,5 +326,43 @@ for my $i (0..$period) {
 }
 
 my $A  = sqrt(2/$#lambdas * $lambda_sq);
-my $fi = rad2deg(asin($lambdas[0] / $A));
+my $fi1 = $lambdas[0] / $A;
+$fi1 = 1 if $fi1 > 1;
+$fi1 = -1 if $fi1 < -1;
+my $fi1 = asin($fi1);
+my $fi2 = pi - $fi1;
+
+sub check_sine_approximation($) {
+  my $fi = $_[0];
+  my $correlation = 0;
+  my (@old_normalized_data, $old_normalized_count, $old_sums, $old_squares) = (
+    @normalized_data, $normalized_count, $sums, $squares
+  ); # Perl doesn't allow me to localize this variables : (
+
+  ($sums, $squares) = (psum->new(), psum->new());
+  @normalized_data = @lambdas;
+  $normalized_count = 2 * @lambdas - 1;
+  $normalized_data[$_+@lambdas] = $A * sin(
+    $_*pi*2/$period + $fi) for 0..@lambdas-1;
+  $sums->add($_) and $squares->add($_**2) for @normalized_data;
+  $normalized_count = 2 * @lambdas - 1;
+
+  $correlation = correlate_arrays(scalar @lambdas, 0, scalar @lambdas);
+  (@normalized_data, $normalized_count, $sums, $squares) = (
+    @old_normalized_data, $old_normalized_count, $old_sums, $old_squares
+  );
+  return $correlation;
+}
+
+my ($c1,$c2) = (check_sine_approximation($fi1),check_sine_approximation($fi2));
+my ($correlation, $fi);
+if ($c1 > $c2) {
+  $correlation = $c1;
+  $fi = $fi1;
+} else {
+  $correlation = $c2;
+  $fi = $fi2;
+}
+
 print "lambda(t) = $A * sin(t*2*3.14/$period + $fi)\n";
+print "Correlation: $correlation\n";

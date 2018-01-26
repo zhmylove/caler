@@ -72,9 +72,9 @@ sub cos($;@) {
 
 # Other functions
 
-#- Generates sin wave with fi0 = 2.1
+#- Generates sin wave with fi0 = 3.2
 sub sinp12($;@) {
-  8.4 * (CORE::sin($_[0] * 2*pi() / $_[1] + 2.1));
+  8.4 * (CORE::sin($_[0] * 2*pi() / $_[1] + 3.2));
 }
 
 #- Generates a saw wave
@@ -146,7 +146,7 @@ no strict "refs";
 our $state;
 sub generator(&$;$) {
   my ($code, $name, $init) = @_;
-  $init //= 0;
+  $init //= -0.1;
 
   # Create global reference to function with given $name
   *$name = sub {
