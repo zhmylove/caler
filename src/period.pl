@@ -314,22 +314,28 @@ sub get_indexes {
 }
 
 my @lambdas = ();
-my $lambda_sq = 0;
+my $lambda_mean = 0;
 my $avg = $sums->sum() / $normalized_count;
 for my $i (0..$period) {
   $lambdas[$i] = 0;
   my @measurements = @normalized_data[get_indexes($period, $i)];
   $lambdas[$i] += $_ for @measurements;
   $lambdas[$i] /= @measurements;
-  $lambda_sq += $lambdas[$i]**2;
+  $lambda_mean += $lambdas[$i];
   print STDERR "$i $lambdas[$i]\n";
 }
+$lambda_mean /= @lambdas;
+print "mean: $lambda_mean\n";
 
-my $A  = sqrt(2/$#lambdas * $lambda_sq);
-my $fi1 = $lambdas[0] / $A;
+my $lambda_sq = 0;
+$lambda_sq += ($_-$lambda_mean)**2 for @lambdas;
+my $A  = sqrt(2/$#lambdas * $lambda_sq); # Sine amplitude
+
+# Sine phase
+my $fi1 = ($lambdas[0] - $lambda_mean) / $A;
 $fi1 = 1 if $fi1 > 1;
 $fi1 = -1 if $fi1 < -1;
-my $fi1 = asin($fi1);
+$fi1 = asin($fi1);
 my $fi2 = pi - $fi1;
 
 sub check_sine_approximation($) {
@@ -364,5 +370,5 @@ if ($c1 > $c2) {
   $fi = $fi2;
 }
 
-print "lambda(t) = $A * sin(t*2*3.14/$period + $fi)\n";
+print "lambda(t) = $lambda_mean + $A * sin(t*2*3.14/$period + $fi)\n";
 print "Correlation: $correlation\n";
