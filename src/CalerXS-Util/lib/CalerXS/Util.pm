@@ -23,6 +23,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw(
 	get_init_offset
+  sum_list
 );
 
 our $VERSION = '0.01';

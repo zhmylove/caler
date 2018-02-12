@@ -17,6 +17,8 @@ use lib 'CalerXS-Util/blib/lib';
 use lib 'CalerXS-Util/blib/arch';
 use CalerXS::Util;
 
+my @arr = (1, 2, 3);
+print CalerXS::Util::sum_list(@arr);
 
 =encoding utf-8
 
@@ -135,14 +137,14 @@ sub get_cpu_time {
    return ($time, $#deploy_ids + 1, @deploy_ids);
 }
 
-=item sum_list()
-
-   ret: sum of arguments
-   arg0 .. : any number
-
-=cut
-
-sub sum_list { eval join "+", map { $_ // 0 } @_ }
+#=item sum_list()
+#
+#   ret: sum of arguments
+#   arg0 .. : any number
+#
+#=cut
+#
+#sub sum_list { eval join "+", map { $_ // 0 } @_ }
 
 =item correlation()
 

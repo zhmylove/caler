@@ -18,3 +18,19 @@ CODE:
   RETVAL = tm->tm_sec + tm->tm_min * 60;
 OUTPUT:
   RETVAL
+
+double
+sum_list(...)
+INIT:
+  int i;
+  double sum = 0.0;
+CODE:
+  if (! items) {
+    XSRETURN_UNDEF;
+  }
+  for (i = 0; i < items; ++i) {
+    sum += (double)SvNV(ST(i));
+  }
+  RETVAL = sum;
+OUTPUT:
+  RETVAL
