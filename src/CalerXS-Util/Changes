@@ -1,0 +1,6 @@
+Revision history for Perl extension CalerXS::Util.
+
+0.01  Mon Feb 12 17:20:36 2018
+	- original version; created by h2xs 1.23 with options
+		-b 5.18.0 -A -n CalerXS::Util --use-xsloader --skip-ppport
+

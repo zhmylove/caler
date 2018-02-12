@@ -8,9 +8,15 @@ no warnings 'experimental';
 use utf8;
 binmode STDOUT, ':utf8';
 use Time::Local;
-use CalerDB;
 use Data::Dumper;
 use POSIX;
+
+use lib '.';
+use CalerDB;
+use lib 'CalerXS-Util/blib/lib';
+use lib 'CalerXS-Util/blib/arch';
+use CalerXS::Util;
+
 
 =encoding utf-8
 
@@ -68,23 +74,23 @@ sub approx_app_metric {
    $DB->inc_N();
 }
 
-=item get_init_offset()
-
-   ret: time offset of ./caler start from the beginning of the day
-
-=cut
-
-=item get_init_offset()
-
-  ret: offset from 0:00 am in seconds
-
-=cut
-sub get_init_offset {
-   my ($sec, $min, $hour) = localtime(time);
-   #my $offset = ($sec + $min * 60 + $hour * 3600);
-   my $offset = ($sec + $min * 60);
-   return $offset;
-}
+#=item get_init_offset()
+#
+#   ret: time offset of ./caler start from the beginning of the day
+#
+#=cut
+#
+#=item get_init_offset()
+#
+#  ret: offset from 0:00 am in seconds
+#
+#=cut
+#sub get_init_offset {
+#   my ($sec, $min, $hour) = localtime(time);
+#   #my $offset = ($sec + $min * 60 + $hour * 3600);
+#   my $offset = ($sec + $min * 60);
+#   return $offset;
+#}
 
 =item get_deploy_ids()
 
@@ -226,7 +232,7 @@ sub store_data {
    my $step = 60; #seconds between history marks
    my ($util, $count);
    my ($corell, $vmnumber);
-   my $init_offset = get_init_offset();
+   my $init_offset = CalerXS::Util::get_init_offset();
    my $correlation_threshold = 10; #avg deviation in percentages
    my $border = $init_offset + $step - $init_offset % $step;
    my $prediction_period = 600;
@@ -361,4 +367,3 @@ sleep(60);
 store_data();
 #$\="\n";
 #print for sort keys %{ $DB->get_approx_day("app1", "CPU") };
-
