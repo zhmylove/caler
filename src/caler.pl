@@ -136,7 +136,11 @@ sub get_cpu_time {
 
 =cut
 
-sub sum_list { eval join "+", map { $_ // 0 } @_ }
+sub sum_list {
+  my $sum = 0;
+  $sum += $_ // 0 for @_;
+  $sum;
+}
 
 =item correlation()
 
