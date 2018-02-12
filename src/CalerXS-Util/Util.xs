@@ -14,7 +14,6 @@ CODE:
   time_t t;
   time(&t);
   struct tm *tm = localtime(&t);
-  printf("wsdfasdfsadf\n");
   RETVAL = tm->tm_sec + tm->tm_min * 60;
 OUTPUT:
   RETVAL
