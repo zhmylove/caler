@@ -180,8 +180,10 @@ sub add_normalized($$) {
         # perform shift every even time and use $arr[0] and $arr[$#arr]
       }
 
-      calculate_period($normalized_count) if $normalized_count > 0;
-      check_periods($normalized_count);
+      unless ($CFG{magic}) {
+         calculate_period($normalized_count) if $normalized_count > 0;
+         check_periods($normalized_count);
+      }
 
       $normalized_count++;
    }
@@ -195,7 +197,8 @@ while (defined ($_ = $ARGV[0])) {
    my $valid = 0;
 
    $valid++, $CFG{notime} = 1 if /^-notime$/ || /^-nt$/;
-   $valid++, $CFG{fast}   = 1 if /^-fast$/ || /^-f$/;
+   $valid++, $CFG{fast}   = 1 if /^-fast$/   || /^-f$/;
+   $valid++, $CFG{magic}  = 1 if /^-magic$/  || /^-m$/;
 
    die "Invalid key specified: $_\n" unless $valid;
 
@@ -261,7 +264,9 @@ if ($CFG{fast}) {
    print STDERR "= [END] period = $period\n" if $_DEBUG > 2;
 }
 
-die "No data mined!\n" unless keys %PT;
+unless ($CFG{magic}) {
+   die "No data mined!\n" unless keys %PT;
+}
 
 if ($_DEBUG > 0) {
    for ((sort { $PT{$b} <=> $PT{$a} } keys %PT)[0..30]) {
@@ -274,7 +279,8 @@ if ($_DEBUG > 0) {
    }
 }
 
-# Off-line analysis: convolution of the results, in case of too many of them
+unless ($CFG{magic}) {
+# Off-line analysis: convolution of the results, if too many of them
 my ($prev, $mean, $N, %periods) = (0, 0);
 for (sort {$a <=> $b} keys %PT) {
    if ($prev + $conv_threshold >= $_) { 
@@ -306,22 +312,26 @@ print "On-line: $period\n";
 printf "Rounded On-line: %.0f\n", $period;
 print "Off-line: $period_offline\n";
 
-$period = 80; # TODO: DELETE, needed by approximation for accuracy
+} else {
+   print STDERR "\nDoing magic! Period is HARD defined!\n\n";
+}
+
+$period = 65; # TODO: DELETE, needed by approximation for accuracy
 
 sub get_indexes {
-	map {$_[1]+$_} grep {!($_ % $_[0]) && $_ + $_[1] < $normalized_count} 
-  (0..$normalized_count-1)
+   map {$_[1]+$_} grep {!($_ % $_[0]) && $_ + $_[1] < $normalized_count} 
+   (0..$normalized_count-1)
 }
 
 my @lambdas = ();
 my $lambda_mean = 0;
 my $avg = $sums->sum() / $normalized_count;
 for my $i (0..$period) {
-  $lambdas[$i] = 0;
-  my @measurements = @normalized_data[get_indexes($period, $i)];
-  $lambdas[$i] += $_ for @measurements;
-  $lambdas[$i] /= @measurements;
-  $lambda_mean += $lambdas[$i];
+   $lambdas[$i] = 0;
+   my @measurements = @normalized_data[get_indexes($period, $i)];
+   $lambdas[$i] += $_ for @measurements;
+   $lambdas[$i] /= @measurements;
+   $lambda_mean += $lambdas[$i];
 }
 $lambda_mean /= @lambdas;
 
@@ -337,29 +347,33 @@ $fi1 = asin($fi1);
 my $fi2 = pi - $fi1;
 
 sub check_sine_approximation($) {
-  my $fi = $_[0];
-  my $correlation = 0;
-  my (@old_normalized_data, $old_normalized_count, $old_sums, $old_squares) = (
-    @normalized_data, $normalized_count, $sums, $squares
-  ); # Perl doesn't allow me to localize this variables : (
+   my $fi = $_[0];
+   my $correlation = 0;
+   my (@old_normalized_data, $old_normalized_count, $old_sums, $old_squares) = (
+      @normalized_data, $normalized_count, $sums, $squares
+   ); # Perl doesn't allow me to localize this variables : (
 
-  ($sums, $squares) = (psum->new(), psum->new());
-  @normalized_data = @lambdas;
-  $normalized_count = 2 * @lambdas - 1;
-  $normalized_data[$_+@lambdas] = $A * sin(
-    $_*pi*2/$period + $fi) for 0..@lambdas-1;
-  $sums->add($_) and $squares->add($_**2) for @normalized_data;
-  $normalized_count = 2 * @lambdas - 1;
+   ($sums, $squares) = (psum->new(), psum->new());
+   @normalized_data = @lambdas;
+   $normalized_count = 2 * @lambdas - 1;
+   $normalized_data[$_+@lambdas] = $A * sin(
+      $_*pi*2/$period + $fi) for 0..@lambdas-1;
+   $sums->add($_) and $squares->add($_**2) for @normalized_data;
+   $normalized_count = 2 * @lambdas - 1;
 
-  $correlation = correlate_arrays(scalar @lambdas, 0, scalar @lambdas);
-  (@normalized_data, $normalized_count, $sums, $squares) = (
-    @old_normalized_data, $old_normalized_count, $old_sums, $old_squares
-  );
-  return $correlation;
+   $correlation = correlate_arrays(scalar @lambdas, 0, scalar @lambdas);
+   (@normalized_data, $normalized_count, $sums, $squares) = (
+      @old_normalized_data, $old_normalized_count, $old_sums, $old_squares
+   );
+   return $correlation;
 }
 
 my ($c1,$c2) = (check_sine_approximation($fi1),check_sine_approximation($fi2));
 my ($correlation, $fi) = ($c1 > $c2) ? ($c1, $fi1) : ($c2, $fi2);
+
+if ($_DEBUG > 0) {
+   print STDERR "\@lambdas = (@lambdas)\n\n";
+}
 
 print "lambda(t) = $lambda_mean + $A * sin(t*2*3.14/$period + $fi)\n";
 print "Correlation: $correlation\n";
