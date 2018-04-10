@@ -14,6 +14,8 @@ binmode STDOUT, ':utf8';
 # $ ./interpolator2001.pl excel_copy_paste | _D=1 _R=0 ./period.pl -f
 #
 #####
+#
+##### !!! CAREFUL !!! It removes the last line, sorry ;-)
 
 my $prev = 0;
 my $sum = 0;
@@ -30,6 +32,7 @@ while (defined($_ = <>)) {
    # First-line case
    if ($count == 0) {
       $prev = int $F[0];
+      $sum = $F[1];
       $count++;
       next;
    }
@@ -38,7 +41,18 @@ while (defined($_ = <>)) {
       $sum += $F[1];
       $count++;
    } else {
-      print "$prev " . $sum / $count . "\n";
+      my $prev_val = $sum / $count;
+      print "$prev $prev_val\n";
+
+      if (int($F[0]) > $prev + 1) {
+         my @middles = ($prev + 1 .. int $F[0] - 1);
+         my $delta = ($F[1] - $prev_val) / @middles;
+         for my $time (@middles) {
+            $prev_val -= $delta;
+            print "$time $prev_val\n";
+         }
+      }
+
       $sum = $F[1];
       $count = 1;
       $prev = int $F[0];
