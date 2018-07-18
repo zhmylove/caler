@@ -103,7 +103,7 @@ my @sk = sort { $T{$a} <=> $T{$b} } keys %T;
 
 # Keys with minimum value
 # В ходе эксперимента с 
-# ./wavegen.pl sin -p3 | cut -d' ' -f2 | tail -318 | ./period6.pl 2>&1
+# ./wavegen.pl sin -p3 | cut -d' ' -f2 | tail -318 | ./period61.pl 2>&1
 # замечена такая особенность:
 #  '150' => '3.24205532022904e-13',
 #  '120' => '2.27184720009391e-13',
