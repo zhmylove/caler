@@ -43,6 +43,13 @@ sub compare {
 
    my $rc = 0;
 
+   if (0+@{$_[0]} == 22) {
+     print ' ';
+     print for @{$_[0]};
+     print ' ';
+     print for @{$_[1]};
+   }
+
    for my $i (0..@{$_[0]}-1) {
       $rc += abs( $_[0]->[$i] - $_[1]->[$i] );
    }
@@ -105,27 +112,27 @@ while (defined($_ = <STDIN>)) {
       }
 
       # Проверка половинок ряда
-      if ($. > 1) {
-        $T{int $./2} += compare subarray int $./2, (int $./2)%2;
-        $cT{int $./2}++;
-      }
+      #if ($. > 1) {
+      #  $T{int $./2} += compare subarray int $./2, (int $./2)%2;
+      #  $cT{int $./2}++;
+      #}
    } else {
       for (keys %T) {
          $T{$_} += compare subarray $_, $.%2;
-         $cT{$_}++;
-      }
+          $cT{$_}++;
+       }
 
-      $T{$./2} = compare subarray $./2, ($./2)%2;
+      $T{$./2} = compare subarray $./2, $.%2;
       $cT{$./2} = 1;
-    }
+   }
 }
 
 # На входе ожидаем четное число отсчётов функции для упрощения прототипа.
 die "count(\@IN)=$. not even! " if $. % 2;
 
-for (keys %T) {
-   $T{$_} /= $cT{$_};
-}
+#for (keys %T) {
+#   $T{$_} /= $cT{$_};
+#}
 
 print STDERR "%T = (";
 print STDERR join ", ", map {"$_ => $T{$_}"} sort {$T{$b}<=>$T{$a}} keys %T;
