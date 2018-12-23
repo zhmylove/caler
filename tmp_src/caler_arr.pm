@@ -19,6 +19,8 @@ binmode STDOUT, ':utf8';
 use Exporter 'import';
 our @EXPORT = qw( carr_read carr_dump carr_inverse carr_interpolate );
 
+use POSIX;
+
 =head1 FUNCTIONS
 
 =over 1
@@ -62,11 +64,19 @@ sub carr_inverse {
 -- print the arr elements with corresponding indicies
 =cut
 sub carr_dump {
-   local $\ = "";
-   for (my $i = 1; $i < @_; $i++) {
-      print "[$i]=\"" . ($_[$i] // '') . "\" ";
+   if (isatty(\*STDOUT)) {
+      local $\ = "";
+      for (my $i = 1; $i < @_; $i++) {
+         print "[$i]=\"" . ($_[$i] // '') . "\" ";
+      }
+      print "\n";
+   } else { # dump in carr_read format
+      local $\ = "\n";
+      for (my $i = 1; $i < @_; $i++) {
+         next unless defined $_[$i];
+         print "$i $_[$i]";
+      }
    }
-   print "\n";
 }
 
 =item B<carr_read()>
@@ -78,7 +88,9 @@ sub carr_read {
    my $prev_index = 0;
    my @arr;
    my @line;
-   while(defined($_ = <STDIN>) && (@line = /^\s*(\d+)\s+(\d+)\s*$/)) {
+   while(defined($_ = <STDIN>) && (
+         @line = /^\s*(\d+)\s+(\d+(?:\.\d+)?)\s*$/
+      )) {
       die "carr_read: invalid index $line[0]\n" if $line[0] <= $prev_index;
       $arr[$line[0]] = $line[1]; # let autovivify holes w/ undef
       $prev_index = $line[0];
