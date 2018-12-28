@@ -17,9 +17,16 @@ use utf8;
 binmode STDOUT, ':utf8';
 
 use Exporter 'import';
-our @EXPORT = qw( carr_read carr_dump carr_inverse carr_interpolate );
+our @EXPORT = qw(
+carr_read
+carr_dump
+carr_inverse
+carr_interpolate
+carr_sine_approx
+);
 
 use POSIX;
+use Math::Trig qw( asin pi rad2deg );
 
 =head1 FUNCTIONS
 
@@ -30,6 +37,50 @@ use POSIX;
 =cut
 sub stub {
    print 1;
+}
+
+=item B<carr_sine_approx($period, @arr)>
+-- approx periodic I<@arr> with sine function.
+
+`return ($mean, $A, $omega, $fi);'
+is equivalent to SIN= $mean + $A * sin($omega * t + $fi)
+=cut
+sub carr_sine_approx {
+   my $period = shift;
+   my @arr = @_;
+
+   my $mean = sub {
+      my $sum = 0;
+      $sum += $_ for @_;
+      $sum /= @_;
+   }->(@arr);
+
+   my $arr_sq = 0;
+   $arr_sq += ($_ - $mean)**2 for @arr;
+
+   my $A = sqrt(2/$#arr * $arr_sq); # Sine amplitude
+
+   # Sine phase
+   my $fi1 = ($arr[0] - $mean) / $A;
+   $fi1 = 1 if $fi1 > 1;
+   $fi1 = -1 if $fi1 < -1;
+   $fi1 = asin($fi1);
+   my $fi2 = pi - $fi1;
+
+   sub check_sine_approximation($) {
+      return 0.9;
+      ...
+      #TODO fix
+   }
+
+   my ($c1, $c2) = (
+      check_sine_approximation($fi1),
+      check_sine_approximation($fi2)
+   );
+
+   my ($correlation, $fi) = ($c1 > $c2) ? ($c1, $fi1) : ($c2, $fi2);
+
+   return ($mean, $A, (2 * pi / $period), $fi);
 }
 
 =item B<carr_interpolate(@arr)>
