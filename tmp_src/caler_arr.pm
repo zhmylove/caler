@@ -18,11 +18,8 @@ binmode STDOUT, ':utf8';
 
 use Exporter 'import';
 our @EXPORT = qw(
-carr_read
-carr_dump
-carr_inverse
-carr_interpolate
-carr_sine_approx
+carr_read carr_dump carr_inverse carr_interpolate carr_sine_approx carr_mean
+carr_stddev carr_periodize carr_average_groups
 );
 
 use POSIX;
@@ -40,6 +37,57 @@ sub stub {
    print 1;
 }
 
+=item B<carr_average_groups()>
+-- Take B<carr_periodize()> output and return B<carr_mean> for each group.
+=cut
+sub carr_average_groups {
+   map { carr_mean(@{$_}) } @_;
+}
+
+=item B<carr_periodize($period, @arr)>
+-- Extract values from I<@arr> on a I<$period> basis.
+
+Returns I<$period> ARRAY references with extracted values.
+For instance, carr_periodize(2, 1, 2, 3, 4) = ([1, 3], [2, 4]);
+=cut
+sub carr_periodize {
+   my $period = shift;
+   my @arr = @_;
+
+   die "Invalid ARRAY for periodization" if @arr % $period;
+
+   my @result;
+   for my $offset (0..$period-1) {
+      # Expensive trash
+      push @result, [ @arr[grep { ! (($_ - $offset) % $period) } 0..$#arr] ];
+   }
+
+   return @result; # explicit return
+}
+
+=item B<carr_stddev(@arr)>
+-- compute standard deviation for I<@arr>.
+
+NOT OPTIMIZED! See B<psum.pm> for basic optimization.
+=cut
+sub carr_stddev {
+   my @arr = @_;
+
+   my $meanx = carr_mean(@arr);
+   my $meanxx = sum (map $_**2, @arr) / @arr;
+
+   sqrt( abs($meanxx - $meanx ** 2) );
+}
+
+=item B<carr_mean(@arr)>
+-- compute mean for I<@arr>.
+=cut
+sub carr_mean {
+   my $sum = 0;
+   $sum += $_ for @_;
+   $sum /= @_;
+}
+
 =item B<carr_sine_approx($period, @arr)>
 -- approx periodic I<@arr> with sine function.
 
@@ -50,11 +98,7 @@ sub carr_sine_approx {
    my $period = shift;
    my @arr = @_;
 
-   my $mean = sub {
-      my $sum = 0;
-      $sum += $_ for @_;
-      $sum /= @_;
-   }->(@arr);
+   my $mean = carr_mean(@arr);
 
    my $arr_sq = 0;
    $arr_sq += ($_ - $mean)**2 for @arr;
@@ -167,5 +211,10 @@ sub carr_read {
 
 =back
 =cut
+
+# TODO list
+# - optimize my @arr = ...
+# - optimize functions w/ psum
+# - memoize (?)
 
 1;
