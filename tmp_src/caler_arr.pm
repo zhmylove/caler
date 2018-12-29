@@ -27,6 +27,7 @@ carr_sine_approx
 
 use POSIX;
 use Math::Trig qw( asin pi rad2deg );
+use List::Util qw( sum );
 
 =head1 FUNCTIONS
 
@@ -59,6 +60,7 @@ sub carr_sine_approx {
    $arr_sq += ($_ - $mean)**2 for @arr;
 
    my $A = sqrt(2/$#arr * $arr_sq); # Sine amplitude
+   my $w = 2 * pi / $period;
 
    # Sine phase
    my $fi1 = ($arr[0] - $mean) / $A;
@@ -67,20 +69,31 @@ sub carr_sine_approx {
    $fi1 = asin($fi1);
    my $fi2 = pi - $fi1;
 
-   sub check_sine_approximation($) {
-      return 0.9;
-      ...
-      #TODO fix
+   # Semi-period sum
+   our $speriod = floor($period / 2);
+   die "Too short period" if $speriod <= 1;
+
+   our $speriod_sum = sum(@arr[0..$speriod]);
+
+   # Internal function, use carefully
+   # used vars: $mean $A $w $speriod $speriod_sum $fi
+   # args: $fi
+   sub _check_sine_approximation($$$$$$) {
+      my ($C, $A, $W, $speriod, $sum, $fi) = @_;
+      die unless defined $fi;
+
+      # Compute sum for semi-period
+      abs $sum - sum map { $C + $A * sin($_ * $W + $fi) } 0..$speriod;
    }
 
    my ($c1, $c2) = (
-      check_sine_approximation($fi1),
-      check_sine_approximation($fi2)
+      _check_sine_approximation($mean, $A, $w, $speriod, $speriod_sum, $fi1),
+      _check_sine_approximation($mean, $A, $w, $speriod, $speriod_sum, $fi2)
    );
 
-   my ($correlation, $fi) = ($c1 > $c2) ? ($c1, $fi1) : ($c2, $fi2);
+   my ($correlation, $fi) = ($c1 < $c2) ? ($c1, $fi1) : ($c2, $fi2);
 
-   return ($mean, $A, (2 * pi / $period), $fi);
+   return ($mean, $A, $w, $fi);
 }
 
 =item B<carr_interpolate(@arr)>
