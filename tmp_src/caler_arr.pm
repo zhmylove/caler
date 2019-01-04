@@ -23,7 +23,6 @@ carr_stddev carr_periodize carr_average_groups
 );
 
 use POSIX;
-use Math::Trig qw( asin pi rad2deg );
 use List::Util qw( sum );
 
 =head1 FUNCTIONS
@@ -104,14 +103,14 @@ sub carr_sine_approx {
    $arr_sq += ($_ - $mean)**2 for @arr;
 
    my $A = sqrt(2/$#arr * $arr_sq); # Sine amplitude
-   my $w = 2 * pi / $period;
+   my $w = 2 * M_PI / $period;
 
    # Sine phase
    my $fi1 = ($arr[0] - $mean) / $A;
    $fi1 = 1 if $fi1 > 1;
    $fi1 = -1 if $fi1 < -1;
    $fi1 = asin($fi1);
-   my $fi2 = pi - $fi1;
+   my $fi2 = M_PI - $fi1;
 
    # Semi-period sum
    our $speriod = floor($period / 2);
@@ -190,18 +189,27 @@ sub carr_dump {
 =item B<carr_read()>
 -- return readed from STDIN array.  
 
-Input format: <index> <value>.  I<index> should increment every line.
+Input format: <index> <value>.  I<index> should start with 1 and increase
+every line.
 =cut
 sub carr_read {
-   my $prev_index = 0;
+   my $prev_index = 1; # should start with 1
+   my $prev_cnt = 1;
    my @arr;
    my @line;
    while(defined($_ = <STDIN>) && (
-         @line = /^\s*(\d+)\s+(\d+(?:\.\d+)?)\s*$/
+         @line = /^\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*$/
       )) {
-      die "carr_read: invalid index $line[0]\n" if $line[0] <= $prev_index;
-      $arr[$line[0]] = $line[1]; # let autovivify holes w/ undef
-      $prev_index = $line[0];
+
+      my $new_index = int($line[0] + 0.49999);
+      die "carr_read: invalid index $line[0]\n" if $new_index < $prev_index;
+
+      if ($new_index != $prev_index) {
+         $prev_cnt = 1;
+      }
+      $arr[$new_index] += $line[1]; # let autovivify holes w/ undef
+      $arr[$new_index] /= $prev_cnt++;
+      $prev_index = $new_index;
    }
 
    die "carr_read: invalid format: $_\n" if defined $_;
