@@ -111,6 +111,7 @@ sub carr_sine_approx {
    $fi1 = 1 if $fi1 > 1;
    $fi1 = -1 if $fi1 < -1;
    $fi1 = asin($fi1);
+   $fi1 += M_PI / 2; # due to @arr starts with 1
    my $fi2 = M_PI - $fi1;
 
    # Semi-period sum

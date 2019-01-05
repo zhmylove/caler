@@ -41,7 +41,6 @@ my @groups = carr_periodize($period, @input[1..$#input]);
 my @lambdas = carr_average_groups(@groups);
 carr_dump(0, @lambdas);
 
-#TODO this part will produce SIN() assuming @lambdas has 0th element. Fix it.
 # SIN= $mean + $A * sin($w * t + $fi)
 my ($mean, $A, $w, $fi) = carr_sine_approx($period, @lambdas);
 
