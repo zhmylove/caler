@@ -48,6 +48,7 @@ sub carr_average_groups {
 
 Returns I<$period> ARRAY references with extracted values.
 For instance, carr_periodize(2, 1, 2, 3, 4) = ([1, 3], [2, 4]);
+Important! I<@arr> should not contain 0th element (see above).
 =cut
 sub carr_periodize {
    my $period = shift;
