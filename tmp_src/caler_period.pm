@@ -162,7 +162,7 @@ sub caler_period {
    _debug ");";
 
    # Sorted Keys
-   my @sk = sort { $T{$a} <=> $T{$b} } keys %T;
+   my @sk = sort { $T{$a} <=> $T{$b} || $a <=> $b } keys %T;
 
    # Keys with minimum value
    # В ходе эксперимента с 

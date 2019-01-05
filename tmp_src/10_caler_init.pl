@@ -27,7 +27,6 @@ carr_dump(@input);
 
 die 'Too few elements in @arr' if @input < 3;
 
-#TODO debug: how does caler_period() return different values on the same input
 # calculate period
 my $period;
 $period = @input % 2 ?
@@ -36,14 +35,19 @@ caler_period(@input[2..$#input]) : caler_period(@input[1..$#input]);
 # split @input to groups
 my @groups = carr_periodize($period, @input[1..$#input]);
 
-#TODO estimate Nu for groups
-# estimate Mean from groups
+# estimate Mean for groups
 my @lambdas = carr_average_groups(@groups);
 carr_dump(0, @lambdas);
 
 # SIN= $mean + $A * sin($w * t + $fi)
 my ($mean, $A, $w, $fi) = carr_sine_approx($period, @lambdas);
 
-print((join "\n", "Period= $period", "Mean= ...", "Nu= ...",
+#TODO check if Fast way is OK
+# Expensive way:
+# my $Nu = carr_stddev(@input[1..$#input]) / carr_mean(@input[1..$#input]);
+# Fast way:
+my $Nu = carr_stddev(@lambdas) / $mean, "\n";
+
+print((join "\n", "Period= $period", "Mean= $mean", "Nu= $Nu",
       "lambda(t)= $mean + $A * sin($w * t + $fi)",
       "f(lambda(t), x)= ..."), "\n");
