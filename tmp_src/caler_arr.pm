@@ -194,7 +194,7 @@ every line.
 =cut
 sub carr_read {
    my $prev_index = 1; # should start with 1
-   my $prev_cnt = 1;
+   my $prev_cnt = 0;
    my @arr;
    my @line;
    while(defined($_ = <STDIN>) && (
@@ -205,11 +205,13 @@ sub carr_read {
       die "carr_read: invalid index $line[0]\n" if $new_index < $prev_index;
 
       if ($new_index != $prev_index) {
+         $arr[$new_index] = $line[1]; # let autovivify holes w/ undef
          $prev_cnt = 1;
+         $prev_index = $new_index;
+      } else {
+         $arr[$new_index] = $arr[$new_index] * $prev_cnt + $line[1];
+         $arr[$new_index] /= ++$prev_cnt;
       }
-      $arr[$new_index] += $line[1]; # let autovivify holes w/ undef
-      $arr[$new_index] /= $prev_cnt++;
-      $prev_index = $new_index;
    }
 
    die "carr_read: invalid format: $_\n" if defined $_;
