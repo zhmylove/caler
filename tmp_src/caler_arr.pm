@@ -195,13 +195,19 @@ every line.
 sub carr_read {
    my $prev_index = 1; # should start with 1
    my $prev_cnt = 0;
-   my @arr;
+   my @arr = ();
    my @line;
    while(defined($_ = <STDIN>) && (
          @line = /^\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*$/
       )) {
 
       my $new_index = int($line[0] + 0.49999);
+
+      # slight performance hack
+      if ($new_index == 1 && $prev_index == 1 && ! defined $arr[1]) {
+         $arr[1] = 0;
+      }
+
       die "carr_read: invalid index $line[0]\n" if $new_index < $prev_index;
 
       if ($new_index != $prev_index) {
