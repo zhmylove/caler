@@ -8,11 +8,11 @@
 ## count_log
 ## "x";"y"
 ## 0;0
-## 1;5
+## 1;5E-2
 ## ...
 
 # OUT format: 
 ## 0 0
-## 1 5
+## 1 5E-2
 ## ...
-perl -CSD -lne 's/[^\d,;]//g;s/;/ /;s/,/./g; print for /^(.*\d.*)$/' "$@"
+perl -CSD -lne 's/[^\d,;E-]//g;s/;/ /;s/,/./g; print for /^(.*\d.*)$/' "$@"
