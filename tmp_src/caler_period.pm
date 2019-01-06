@@ -22,12 +22,16 @@ binmode STDOUT, ':utf8';
 
 use lib '.';
 use Exporter 'import';
-our @EXPORT = qw( caler_period );
+our @EXPORT = qw( caler_period caler_period_fast );
+our @EXPORT_OK = qw( _get_divisors );
+
 
 our $DEBUG = 0;
 
 use Data::Dumper;
 sub _debug { print STDERR @_, "\n" if $DEBUG; }
+use Memoize;
+use POSIX;
 
 # Термины:
 #  T - hash таблица предполагаемых периодов
@@ -147,7 +151,7 @@ sub _caler_period_read {
 =over 1
 
 =item B<caler_period(@arr)>
--- Tries to estimate a period for I<@arr> values.
+-- Tries to estimate a period for I<@arr> values using cumulative method.
 =cut
 sub caler_period {
 
@@ -206,6 +210,154 @@ sub caler_period {
 
 # Нужно что-нибудь придумать с периодом, стремящимся к 1, если функция
 # не периодическая в принципе: [ 1, 2, 3, 4, 5, 6, 7, 8 ]
+
+
+# Возвращает список делителей числа
+sub _get_divisors($);
+sub _get_divisors($) {
+   my $number = $_[0];
+
+   my %rc;
+   my $curr;
+
+   for my $div (2..$number) {
+      if ($number >= $div) {
+         if ($number % $div == 0) {
+            $rc{$div} = undef;
+            $rc{$number} = undef;
+            $curr = $number / $div;
+            last if $curr == 1;
+            $rc{$curr} = undef;
+            @rc{_get_divisors($curr)} = undef;
+         }
+      } else { last }
+   }
+
+   return keys %rc;
+}
+memoize('_get_divisors', LIST_CACHE => 'MERGE');
+
+my @ARR;
+
+# Следующие функции нужны для определения сумм подмножеств @ARR длиной $_[0]
+# 0 -- с начала массива; L -- слева от центра; R -- справа от центра;
+# E -- в конце массива.
+sub sum0 { if ($_[0] == 1) { return $ARR[0] } else {
+      return $ARR[$_[0]-1] + sum0($_[0] - 1) } }
+sub sumL { if ($_[0] == 1) { return $ARR[@ARR/2-1] } else {
+      return $ARR[@ARR/2 - $_[0]] + sumL($_[0] - 1) } }
+sub sumR { if ($_[0] == 1) { return $ARR[@ARR/2] } else {
+      return $ARR[@ARR/2 + $_[0] - 1] + sumR($_[0] - 1) } }
+sub sumE { if ($_[0] == 1) { return $ARR[$#ARR] } else {
+      return $ARR[$#ARR - $_[0] + 1] + sumE($_[0] - 1) } }
+memoize($_, LIST_CACHE => 'MERGE') for qw( sum0 sumL sumR sumE );
+
+=item B<caler_period_fast(@arr)>
+-- Tries to quickly estimate a period for I<@arr> values using full population.
+=cut
+sub caler_period_fast {
+   # Принципиально новый метод поиска периода, применимый для имеющейся 
+   # совокупности данных, не позволяющий вычислять период онлайн,
+   # зато должен быстрее работать на имеющемся полном наборе данных.
+   # 
+
+   ##   my %potential_periods;
+   ##   $potential_periods{$_} = 1 for (1..@_);
+
+   # Функция для выбора индексов сравниваемых значений
+   # arg0: длина выборки
+   # arg1: длина массива
+   # rc: ARRAYref, ARRAYref -- массивы с индексами
+   ### sub _subindex {
+   ###    my $len = $_[0];
+   ###    my $center = floor($_[1] / 2);
+   ###    return [$center-$len..$center-1], [$center..$center+$len-1];
+   ### }
+
+   # Пороговое значение для функции сравнения.
+   # Поскольку функция сравнения находит сумму абсолютных разностей массивов,
+   # величину R имеет смысл выбирать как ????
+   ##my $R = 0.5;
+
+   ##   for my $current (reverse 2..floor(@_/2)) {
+   ##      next unless $potential_periods{$current};
+   ##
+   ##      # Такой алгоритм, наверное, был бы неплох; но нужно использовать 
+   ##      # корреляцию и как-то выбрать $R.
+   ##      my ($idx1, $idx2) = _subindex($current, 0+@_);
+   ##      if ( compare([@_[@{$idx1}]], [@_[@{$idx2}]]) < $R ) {
+   ##         $potential_periods{$_} = 0 for (_get_divisors $current);
+   ##      }
+   ##   }
+
+   # Таблица сумм абсолютных отклонений
+   ### my %diff;
+   ### my $curr_diff;
+
+   ### my %potential_periods;
+   ### $potential_periods{$_} = 1 for (2..floor(@_/2));
+
+   ### # Переберем все варианты
+   ### for my $current (reverse 2..floor(@_/2)) {
+   ###    # Может быть, тут как-то получится оптимизировать; но не понятно, как
+   ###    print STDERR "[i:$current]";
+   ###    next unless $potential_periods{$current};
+   ###    print STDERR "[o:$current]";
+
+   ###    my ($idx1, $idx2) = _subindex($current, 0+@_);
+   ###    #$diff{$current} = compare([@_[@{$idx1}]], [@_[@{$idx2}]]);
+   ###    use List::MoreUtils::XS qw( pairwise );
+   ###    use List::Util qw( sum max min );
+   ###    my @a1 = @_[@$idx1];
+   ###    my @a2 = @_[@$idx2];
+   ###    #$diff{$current} = $curr_diff = sum(pairwise {abs($a - $b)} @a1, @a2);
+   ###    $diff{$current} = $curr_diff = sum(@a1) - sum(@a2);
+
+   ###    print STDERR "[c: $curr_diff | " . (sum(@a1)/@a1) ." ]";
+   ###    if ($curr_diff > $current * $R * max(@a1)) {
+   ###       $potential_periods{$_} = 0 for (_get_divisors $current);
+   ###    }
+   ### }
+
+   # Выберем наименьшее значение
+   ### my $min = (sort { $diff{$a} <=> $diff{$b} || $a <=> $b } keys %diff)[0];
+
+   # Теперь нужно как-то хитро проверить все делители $min
+
+   ### $min;
+
+   die "caler_period: array is too short" if @_ < 8;
+   die "caler_period: array % 4 != 0" if @_ % 4;
+   shift while (@_ % 4); # normalize (is it OK?)
+
+   my $max_p = @_ / 4;
+   @ARR = @_;
+
+   # For 1..$max_p estimate sums
+   my %diff;
+
+   # Приблизительная оценка на основе интегралов
+   # (а может быть, тут лучше использовать средние)
+   for my $curr (1..$max_p) {
+      $diff{$curr}{sums} = [
+         sum0($curr), sumL($curr), sumR($curr), sumE($curr)
+      ];
+   }
+
+   for my $key (keys %diff) {
+      use caler_arr;
+      $diff{$key}{mean} = carr_mean(@{ $diff{$key}{sums} });
+      $diff{$key}{stddev} = carr_stddev(@{ $diff{$key}{sums} });
+      $diff{$key}{doverit} = $diff{$key}{stddev} * 1.96 / 2;
+   }
+
+   print Dumper \%diff;
+
+   1;
+
+   #TODO сделать вывод о том, какие $curr подходят для дальнейшего анализа
+   #TODO от меньшего к большему выполнить детальный анализ
+}
 
 =back
 =cut
