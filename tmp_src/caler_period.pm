@@ -327,7 +327,8 @@ sub caler_period_fast {
    ### $min;
 
    die "caler_period: array is too short" if @_ < 8;
-   die "caler_period: array % 4 != 0" if @_ % 4;
+   #TODO проверить, нужно или нет
+   #die "caler_period: array % 4 != 0" if @_ % 4;
    shift while (@_ % 4); # normalize (is it OK?)
 
    my $max_p = @_ / 4;
@@ -340,7 +341,8 @@ sub caler_period_fast {
    # (а может быть, тут лучше использовать средние)
    for my $curr (1..$max_p) {
       $diff{$curr}{sums} = [
-         sum0($curr), sumL($curr), sumR($curr), sumE($curr)
+         sum0($curr) / $curr, sumL($curr) / $curr,
+         sumR($curr) / $curr, sumE($curr) / $curr
       ];
    }
 
@@ -348,10 +350,45 @@ sub caler_period_fast {
       use caler_arr;
       $diff{$key}{mean} = carr_mean(@{ $diff{$key}{sums} });
       $diff{$key}{stddev} = carr_stddev(@{ $diff{$key}{sums} });
-      $diff{$key}{doverit} = $diff{$key}{stddev} * 1.96 / 2;
+      #$diff{$key}{doverit} = $diff{$key}{stddev} * 1.96 / 2;
    }
 
-   print Dumper \%diff;
+   my @x = sort {
+      $diff{$a}{stddev} <=> $diff{$b}{stddev} || $a <=> $b
+   } keys %diff;
+
+   #TODO убрать дебажный вывод
+   print "$_\tmean= $diff{$_}{mean}\tstddev= $diff{$_}{stddev}\n" for
+   @x[0..@x*0.1];
+
+   # В куске кода ниже выбирается "период" с минимальным ско и находятся все,
+   # расположенные рядом с ним, ключи и сохраняется это всё для дальнейшего
+   # анализа в массиве @pre_keys
+   my $min_key = $x[0];
+   my @pre_keys = ($min_key);
+   my $prev_key = $min_key;
+   push @pre_keys, $_ for grep {
+      $_ > $min_key && $_ == $prev_key + 1 && ($prev_key = $_, 1)
+   } sort {$a<=>$b} @x[0..@x*0.1];
+   $prev_key = $min_key;
+   push @pre_keys, $_ for grep {
+      $_< $min_key && $_ == $prev_key - 1 && ($prev_key = $_, 1)
+   } sort {$b<=>$a} @x[0..@x*0.1];
+   undef $prev_key; # не нужная переменная
+
+   my %to_check; @to_check{map _get_divisors $_, @pre_keys} = ();
+   print "[$_] " for sort {$a<=>$b} keys %to_check;
+
+   #
+   # $ time ( ../src/wavegen.pl sin -p12.3 -a5 -s150000 |awk '{print $2}' |
+   # cat -n |perl -alne '$F[1]+=rand($ENV{RR});print "@F"' |
+   # time perl -Mcaler_period -Mstrict -Mcaler_arr -e '
+   # my@a=carr_interpolate carr_inverse(carr_read()); shift @a;
+   # print caler_period_fast @a')
+   # real    1m56,115s
+   # user    2m8,704s
+   # sys     0m1,013s
+   #
 
    1;
 
