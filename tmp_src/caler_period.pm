@@ -22,7 +22,7 @@ binmode STDOUT, ':utf8';
 
 use lib '.';
 use Exporter 'import';
-our @EXPORT = qw( caler_period caler_period_fast );
+our @EXPORT = qw( caler_period caler_period_fast caler_period_quick );
 our @EXPORT_OK = qw( _get_divisors );
 
 
@@ -358,8 +358,18 @@ sub caler_period_fast {
    } keys %diff;
 
    #TODO убрать дебажный вывод
-   print "$_\tmean= $diff{$_}{mean}\tstddev= $diff{$_}{stddev}\n" for
-   @x[0..@x*0.1];
+   ## print "$_\tmean= $diff{$_}{mean}\tstddev= $diff{$_}{stddev}\n" for
+   ## @x[0..@x*0.1];
+
+   my $threshold = $diff{$x[0]}{stddev} + (
+      $diff{$x[$#x]}{stddev} - $diff{$x[0]}{stddev}
+   ) / 10;
+
+   #TODO Если выгорит, подумать над 10**-4
+   #NOTE: in keys for_pre_keys also was: @x[0..@x*0.1],
+   my %for_pre_keys; @for_pre_keys{ 
+   grep{$diff{$_}{stddev} < $threshold } keys %diff}=();
+   my @for_pre_keys = keys %for_pre_keys;
 
    # В куске кода ниже выбирается "период" с минимальным ско и находятся все,
    # расположенные рядом с ним, ключи и сохраняется это всё для дальнейшего
@@ -369,11 +379,11 @@ sub caler_period_fast {
    my $prev_key = $min_key;
    push @pre_keys, $_ for grep {
       $_ > $min_key && $_ == $prev_key + 1 && ($prev_key = $_, 1)
-   } sort {$a<=>$b} @x[0..@x*0.1];
+   } sort {$a<=>$b} @for_pre_keys;
    $prev_key = $min_key;
    push @pre_keys, $_ for grep {
       $_< $min_key && $_ == $prev_key - 1 && ($prev_key = $_, 1)
-   } sort {$b<=>$a} @x[0..@x*0.1];
+   } sort {$b<=>$a} @for_pre_keys;
    undef $prev_key; # не нужная переменная
 
    my %to_check; @to_check{map _get_divisors $_, @pre_keys} = ();
@@ -394,6 +404,36 @@ sub caler_period_fast {
 
    #TODO сделать вывод о том, какие $curr подходят для дальнейшего анализа
    #TODO от меньшего к большему выполнить детальный анализ
+}
+
+sub caler_period_quick {
+   die "caler_period: array is too short" if @_ < 8;
+   my $size = floor sqrt @_;
+   shift while (@_ % $size); # normalize (is it OK?)
+   @ARR = @_;
+
+   my @diff; #resuting array
+
+   for my $hperiod (1..$size) {
+      my @sums;
+      my $sum;
+
+      for (my $i = 0; $i < $hperiod ** 2; $i++) {
+         $sums[$i % $hperiod] += $ARR[$i];
+         $sum += $ARR[$i];
+      }
+
+      my $avg = $sum / ($hperiod ** 2);
+      $sums[$_] /= $hperiod for (0..$#sums);
+
+      use List::Util qw( sum max min );
+      push @{$diff[ sum map {abs($sums[$_] - $avg)} (0..$#sums) ]}, $hperiod;
+
+      print "$hperiod: ". sum map {abs($sums[$_] - $avg)} (0..$#sums);
+   }
+
+   #my $top = pop @diff;
+   print Dumper \@diff;
 }
 
 =back
