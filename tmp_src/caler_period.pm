@@ -237,7 +237,13 @@ sub _get_divisors($) {
 }
 memoize('_get_divisors', LIST_CACHE => 'MERGE');
 
-my @ARR;
+# Рабочий массив
+our @ARR;
+
+# Should be called with filled @ARR
+sub _get_idx_for_period {
+   map { $#ARR - $_ * $_[0] } (0..floor(@ARR / $_[0])-1);
+}
 
 # Следующие функции нужны для определения сумм подмножеств @ARR длиной $_[0]
 # 0 -- с начала массива; L -- слева от центра; R -- справа от центра;
@@ -326,6 +332,11 @@ sub caler_period_fast {
 
    ### $min;
 
+   #TODO move up
+   use List::Util qw( sum );
+   use caler_arr;
+
+   print STDERR "1\n";
    die "caler_period: array is too short" if @_ < 8;
    #TODO проверить, нужно или нет
    #die "caler_period: array % 4 != 0" if @_ % 4;
@@ -337,6 +348,9 @@ sub caler_period_fast {
    # For 1..$max_p estimate sums
    my %diff;
 
+   goto 'SKIP2';
+   print STDERR "4\n";
+
    # Приблизительная оценка на основе интегралов
    # (а может быть, тут лучше использовать средние)
    for my $curr (1..$max_p) {
@@ -346,59 +360,136 @@ sub caler_period_fast {
       ];
    }
 
+   print STDERR "6\n";
    for my $key (keys %diff) {
-      use caler_arr;
-      $diff{$key}{mean} = carr_mean(@{ $diff{$key}{sums} });
-      $diff{$key}{stddev} = carr_stddev(@{ $diff{$key}{sums} });
-      #$diff{$key}{doverit} = $diff{$key}{stddev} * 1.96 / 2;
+      my @sums = @{$diff{$key}{sums}};
+      $diff{$key}{mean} = sum(@sums) / 4;
+      $diff{$key}{stddev} = carr_stddev(@sums);
    }
 
-   my @x = sort {
+   # Расположим массив в порядке его обхода
+   print STDERR "8\n";
+   my @sorted = sort {
       $diff{$a}{stddev} <=> $diff{$b}{stddev} || $a <=> $b
    } keys %diff;
 
-   #TODO убрать дебажный вывод
-   ## print "$_\tmean= $diff{$_}{mean}\tstddev= $diff{$_}{stddev}\n" for
-   ## @x[0..@x*0.1];
+   SKIP2:
 
-   my $threshold = $diff{$x[0]}{stddev} + (
-      $diff{$x[$#x]}{stddev} - $diff{$x[0]}{stddev}
-   ) / 10;
+   print STDERR "10\n";
+   my $AVG = sum(@ARR) / scalar(@ARR);
+   print STDERR "11 avg=$AVG @{[1/$AVG]}\n";
 
-   #TODO Если выгорит, подумать над 10**-4
-   #NOTE: in keys for_pre_keys also was: @x[0..@x*0.1],
-   my %for_pre_keys; @for_pre_keys{ 
-   grep{$diff{$_}{stddev} < $threshold } keys %diff}=();
-   my @for_pre_keys = keys %for_pre_keys;
+   my $max_delta = 0;
 
-   # В куске кода ниже выбирается "период" с минимальным ско и находятся все,
-   # расположенные рядом с ним, ключи и сохраняется это всё для дальнейшего
-   # анализа в массиве @pre_keys
-   my $min_key = $x[0];
-   my @pre_keys = ($min_key);
-   my $prev_key = $min_key;
-   push @pre_keys, $_ for grep {
-      $_ > $min_key && $_ == $prev_key + 1 && ($prev_key = $_, 1)
-   } sort {$a<=>$b} @for_pre_keys;
-   $prev_key = $min_key;
-   push @pre_keys, $_ for grep {
-      $_< $min_key && $_ == $prev_key - 1 && ($prev_key = $_, 1)
-   } sort {$b<=>$a} @for_pre_keys;
-   undef $prev_key; # не нужная переменная
+   # Обойдем массив, сделаем быструю проверку периода
+   #print "Curr\tDelta\tMod\tIdx\n";
+   print STDERR "12\n";
+   CURR: for my $curr (4..@ARR/4) {
+      # $curr -- Это предполагаемый период
+      if ($curr < 4) {
+         $diff{$curr}{delta} = 0;
+         next;
+      }
 
-   my %to_check; @to_check{map _get_divisors $_, @pre_keys} = ();
-   print "[$_] " for sort {$a<=>$b} keys %to_check;
+      my $check = 1233;
+      my @idx = _get_idx_for_period $curr;
+      #printf "{%d $curr %d %d @idx}\n", 0+@ARR, floor($curr/4), 0+@idx;
+      my $delta = abs(sum(@ARR[@idx]) / @idx - $AVG);
 
-   #
-   # $ time ( ../src/wavegen.pl sin -p12.3 -a5 -s150000 |awk '{print $2}' |
-   # cat -n |perl -alne '$F[1]+=rand($ENV{RR});print "@F"' |
-   # time perl -Mcaler_period -Mstrict -Mcaler_arr -e '
-   # my@a=carr_interpolate carr_inverse(carr_read()); shift @a;
-   # print caler_period_fast @a')
-   # real    1m56,115s
-   # user    2m8,704s
-   # sys     0m1,013s
-   #
+      my $n = 5;
+      #3#  for (3..100) {
+      #3#     $n = $_;
+      #3#     last if $curr % $n == 0;
+      #3#     if ($_ == 100) {
+      #3#        #die "Failed to get even N";
+      #3#        $diff{$curr}{delta} = 0;
+      #3#        next 'CURR';
+      #3#     }
+      #3#  }
+      #print STDERR "N = $n\n";
+      my $hperiod = floor($curr / $n);
+      #print STDERR "(curr $curr N $n hperiod $hperiod)\n";
+
+      for (1..$n-1) {
+         for (@idx) {
+            $_ -= $hperiod;
+         }
+         @idx = grep {$_ >= 0} @idx;
+         $delta += abs(sum(@ARR[@idx]) / @idx - $AVG);
+      }
+
+      $diff{$curr}{delta} = $delta;
+      $max_delta = $delta if $delta > $max_delta;
+
+      #print "$curr\t$delta\t".($curr%$ENV{PER})."\t@idx\n";
+   }
+
+   # Normalize deltas
+   $diff{$_}{delta} /= $max_delta for keys %diff;
+
+   print STDERR "14 max_delta: $max_delta\n";
+   my $prev = 0;
+   for ( sort { $a <=> $b } grep { $diff{$_}{delta} >= 0.5 } keys %diff) {
+      printf "%d\t%d\t%d\tdelta=%.3f\n", $_, $_ - $prev, ($_ % $ENV{PER}), $diff{$_}{delta};
+      $prev = $_;
+   }
+   #sort { $diff{$b}{delta} <=> $diff{$a}{delta} } keys %diff;
+
+   #2#   my @y = grep{$diff{$_}{line}<=$diff{$x[$#x]}{line} / 100} @x;
+   #2#   print ((scalar grep{$diff{$_}{line}<=$diff{$x[$#x]}{line} / 100} @x), " $#x -- 1% of x\n");
+   #2#   print ((scalar grep{$_%$ENV{PER}==0} @x[0..@x*0.1]), " ", scalar(@x*0.1), " -- 0.1*x\n");
+   #2#   print ((scalar grep{$_%$ENV{PER}==0} @y), " ", scalar(@y), " -- y\n");
+   #2#   print "==(Total elements: " . scalar @ARR . "=\n";
+   #2#   print "$_\t".($_%$ENV{PER})."\tmean= $diff{$_}{mean}\tline= $diff{$_}{line}\n" for
+   #2#   @x[0..@x*0.1];
+   #2#   print "===\n";
+   #2#   print "$_\tmean= $diff{$_}{mean}\tline= $diff{$_}{line}\n" for
+   #2#   @x[@x-1-@x*0.1..$#x];
+   #2#   print "===\n";
+
+
+   #1#   #TODO убрать дебажный вывод
+   #1#   ## print "$_\tmean= $diff{$_}{mean}\tstddev= $diff{$_}{stddev}\n" for
+   #1#   ## @x[0..@x*0.1];
+   #1#
+   #1#   my $threshold = $diff{$x[0]}{stddev} + (
+   #1#      $diff{$x[$#x]}{stddev} - $diff{$x[0]}{stddev}
+   #1#   ) / 10;
+   #1#
+   #1#   #TODO Если выгорит, подумать над 10**-4
+   #1#   #NOTE: in keys for_pre_keys also was: @x[0..@x*0.1],
+   #1#   my %for_pre_keys; @for_pre_keys{ 
+   #1#   grep{$diff{$_}{stddev} < $threshold } keys %diff}=();
+   #1#   my @for_pre_keys = keys %for_pre_keys;
+   #1#
+   #1#   # В куске кода ниже выбирается "период" с минимальным ско и находятся все,
+   #1#   # расположенные рядом с ним, ключи и сохраняется это всё для дальнейшего
+   #1#   # анализа в массиве @pre_keys
+   #1#   my $min_key = $x[0];
+   #1#   my @pre_keys = ($min_key);
+   #1#   my $prev_key = $min_key;
+   #1#   push @pre_keys, $_ for grep {
+   #1#      $_ > $min_key && $_ == $prev_key + 1 && ($prev_key = $_, 1)
+   #1#   } sort {$a<=>$b} @for_pre_keys;
+   #1#   $prev_key = $min_key;
+   #1#   push @pre_keys, $_ for grep {
+   #1#      $_< $min_key && $_ == $prev_key - 1 && ($prev_key = $_, 1)
+   #1#   } sort {$b<=>$a} @for_pre_keys;
+   #1#   undef $prev_key; # не нужная переменная
+   #1#
+   #1#   my %to_check; @to_check{map _get_divisors $_, @pre_keys} = ();
+   #1#   print "[$_] " for sort {$a<=>$b} keys %to_check;
+   #1#
+   #1#   #
+   #1#   # $ time ( ../src/wavegen.pl sin -p12.3 -a5 -s150000 |awk '{print $2}' |
+   #1#   # cat -n |perl -alne '$F[1]+=rand($ENV{RR});print "@F"' |
+   #1#   # time perl -Mcaler_period -Mstrict -Mcaler_arr -e '
+   #1#   # my@a=carr_interpolate carr_inverse(carr_read()); shift @a;
+   #1#   # print caler_period_fast @a')
+   #1#   # real    1m56,115s
+   #1#   # user    2m8,704s
+   #1#   # sys     0m1,013s
+   #1#   #
 
    1;
 
@@ -413,27 +504,39 @@ sub caler_period_quick {
    @ARR = @_;
 
    my @diff; #resuting array
+   my %diff; #resuting hash
 
    for my $hperiod (1..$size) {
       my @sums;
       my $sum;
 
       for (my $i = 0; $i < $hperiod ** 2; $i++) {
-         $sums[$i % $hperiod] += $ARR[$i];
-         $sum += $ARR[$i];
+         $sums[$i % $hperiod] += $ARR[$#ARR - $i];
+         $sum += $ARR[$#ARR - $i];
       }
 
       my $avg = $sum / ($hperiod ** 2);
       $sums[$_] /= $hperiod for (0..$#sums);
 
       use List::Util qw( sum max min );
-      push @{$diff[ sum map {abs($sums[$_] - $avg)} (0..$#sums) ]}, $hperiod;
+      #push @{$diff[ sum map {abs($sums[$_] - $avg)} (0..$#sums) ]}, $hperiod;
+      $diff{$hperiod} = sum map {abs($sums[$_] - $avg)} (0..$#sums);
 
-      print "$hperiod: ". sum map {abs($sums[$_] - $avg)} (0..$#sums);
+      #print "$hperiod: ". sum map {abs($sums[$_] - $avg)} (0..$#sums);
    }
 
+   my @sorted = sort { $diff{$a} <=> $diff{$b} } keys %diff;
+   my $hmax = $sorted[$#sorted];
+   my @divisors = _get_divisors $hmax;
+   my %available;
+   $available{$_} = $diff{$hmax} / ($hmax / $_) for @divisors;
+
+   my @periods = grep { $diff{$_} >= $available{$_} } @divisors;
+   print "Period: $_ avail: $available{$_} value: $diff{$_} " for @divisors;
+
+
    #my $top = pop @diff;
-   print Dumper \@diff;
+   #print Dumper \@diff;
 }
 
 =back
