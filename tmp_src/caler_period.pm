@@ -349,29 +349,29 @@ sub caler_period_fast {
    my %diff;
 
    goto 'SKIP2';
-   print STDERR "4\n";
-
-   # Приблизительная оценка на основе интегралов
-   # (а может быть, тут лучше использовать средние)
-   for my $curr (1..$max_p) {
-      $diff{$curr}{sums} = [
-         sum0($curr) / $curr, sumL($curr) / $curr,
-         sumR($curr) / $curr, sumE($curr) / $curr
-      ];
-   }
-
-   print STDERR "6\n";
-   for my $key (keys %diff) {
-      my @sums = @{$diff{$key}{sums}};
-      $diff{$key}{mean} = sum(@sums) / 4;
-      $diff{$key}{stddev} = carr_stddev(@sums);
-   }
-
-   # Расположим массив в порядке его обхода
-   print STDERR "8\n";
-   my @sorted = sort {
-      $diff{$a}{stddev} <=> $diff{$b}{stddev} || $a <=> $b
-   } keys %diff;
+   #4#   print STDERR "4\n";
+   #4#
+   #4#   # Приблизительная оценка на основе интегралов
+   #4#   # (а может быть, тут лучше использовать средние)
+   #4#   for my $curr (1..$max_p) {
+   #4#      $diff{$curr}{sums} = [
+   #4#         sum0($curr) / $curr, sumL($curr) / $curr,
+   #4#         sumR($curr) / $curr, sumE($curr) / $curr
+   #4#      ];
+   #4#   }
+   #4#
+   #4#   print STDERR "6\n";
+   #4#   for my $key (keys %diff) {
+   #4#      my @sums = @{$diff{$key}{sums}};
+   #4#      $diff{$key}{mean} = sum(@sums) / 4;
+   #4#      $diff{$key}{stddev} = carr_stddev(@sums);
+   #4#   }
+   #4#
+   #4#   # Расположим массив в порядке его обхода
+   #4#   print STDERR "8\n";
+   #4#   my @sorted = sort {
+   #4#      $diff{$a}{stddev} <=> $diff{$b}{stddev} || $a <=> $b
+   #4#   } keys %diff;
 
    SKIP2:
 
@@ -427,12 +427,20 @@ sub caler_period_fast {
    # Normalize deltas
    $diff{$_}{delta} /= $max_delta for keys %diff;
 
+   my @x = sort { $a <=> $b } grep { $diff{$_}{delta} >= 0.5 } keys %diff;
+
    print STDERR "14 max_delta: $max_delta\n";
-   my $prev = 0;
-   for ( sort { $a <=> $b } grep { $diff{$_}{delta} >= 0.5 } keys %diff) {
+   my $prev = $x[0];
+   my @for_analysis;
+   for (@x) {
+      last if $_ - $prev > $_ * 0.1;
+      push @for_analysis, $_;
       printf "%d\t%d\t%d\tdelta=%.3f\n", $_, $_ - $prev, ($_ % $ENV{PER}), $diff{$_}{delta};
       $prev = $_;
    }
+
+   # Из центра @for_analysis нужно будет выполнить детальный анализ
+
    #sort { $diff{$b}{delta} <=> $diff{$a}{delta} } keys %diff;
 
    #2#   my @y = grep{$diff{$_}{line}<=$diff{$x[$#x]}{line} / 100} @x;
