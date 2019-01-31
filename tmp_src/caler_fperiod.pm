@@ -88,14 +88,48 @@ sub _collect_periodic_sums {
    return $count, @sums;
 }
 
+# arg: _collect_periodic_sums(...)
+# ret: LIST ($count-base averaged @sums)
+sub _average_periodic_sums {
+   my $count = shift;
+   map { $_ / $count } @_;
+}
+
 @ARR = (1..40);
-#print "$_\n" for _get_deltas_by_period 36;
-#print "$_\n" for _get_values_by_offset_deltas 20, _get_deltas_by_period 20;
 
-print "$_\n" for _collect_periodic_sums 20;
+# arg: _average_periodic_sums(...)
+# ret: diff between max and min point
+sub _evaluate_height {
+   ...
+}
 
-# 0        1         2         3         4
-# 1234567890123456789012345678901234567890
-# ++  +    +        +            + | 36
-# ++ +  +    +      + | 20
-# ++ +  +    +      + ++ +  +    +      + | 20
+# arg: --
+# ret: HASHref( period => delta )
+sub _run_with_periods {
+   my $from = ($min_period + 1) * 10;
+   my $to = floor(@ARR / 8);
+   die 'Too short @ARR' unless $from < $to;
+
+   my %rc;
+
+   for my $curr ($from..$to) {
+      $rc{$curr} = _evaluate_height(
+         _average_periodic_sums _collect_periodic_sums $curr
+      );
+   }
+
+   \%rc;
+}
+
+# arg: LIST of values
+# ret: period
+sub caler_fperiod {
+   shift while @_ % 8;
+   @ARR = reverse @_;
+
+   my $hr = _run_with_periods();
+
+   ... # analyze %{$hr}
+
+   ... # check if it's correct period
+}
