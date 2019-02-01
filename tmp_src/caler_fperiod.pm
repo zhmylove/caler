@@ -102,6 +102,12 @@ sub _evaluate_height {
    ...
 }
 
+# arg: $period
+# ret: Boolean
+sub _check_period {
+   ...
+}
+
 # arg: --
 # ret: HASHref( period => delta )
 sub _run_with_periods {
@@ -128,19 +134,43 @@ sub caler_fperiod {
    @ARR = reverse @_;
 
    # TODO algorithm ?
-   my $hr = _run_with_periods();
+   my $period = -1;
+   my %deltas = %{_run_with_periods()};
+   my %period_blacklist;
+   my @sorted;
 
-   ...
-
-   # ===== analyze %{$hr}
    # LOOP:
-   # - exclude keys from %period_blacklist
-   # - range remaining keys $hr->{} by values (deltas?)
-   # - if hash is empty: die with period unfound
-   # - select the best key
-   # - check if it's a correct period
-   # - if period is...
-   # -- uncorrect: it and it's divisors should be put into %period_blacklist
-   # -- correct: return and end the algorithm
-   # - repeat LOOP
+   while (1) {
+      # - exclude keys from %period_blacklist
+      delete @deltas{keys %period_blacklist};
+
+      # - range remaining keys $hr->{} by values (deltas?)
+      @sorted = sort {$deltas{$b} <=> $deltas{$a} || $a <=> $b} keys %deltas;
+
+      # - if hash is empty: die with period unfound
+      last unless @sorted;
+
+      # - select the best key
+      my $probe = $sorted[0];
+
+      # - check if it's a correct period
+      if (_check_period($probe)) {
+         # -- correct: return and end the algorithm
+         $period = $probe;
+         last;
+      } else {
+         # -- incorrect: it and it's divisors should be blacklisted
+
+         # TODO remove external dependency
+         use caler_period '_get_divisors';
+
+         @period_blacklist{_get_divisors($probe)} = ();
+      }
+
+      # - repeat LOOP
+   }
+
+   die 'caler_period unable to calculate' if $period < 0;
+
+   return $period;
 }
