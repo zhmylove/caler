@@ -41,15 +41,16 @@ sub _get_prime_sum($) {
 }
 memoize('_get_prime_sum', LIST_CACHE => 'MERGE');
 
-my $primes_to_use = 5;
-my $min_period = _get_prime_sum($primes_to_use);
+my $primes_to_use = 5; # number of primes to use from @primes
+my $min_period = _get_prime_sum($primes_to_use); # (lower bound)
+my $min_pieces = 8; # minimum number of pieces in period (upper bound)
 
 # arg0: period
 # ret: LIST of primes
 sub _get_deltas_by_period {
    my $period = $_[0];
 
-   return if $period <= $min_period;
+   die '_get_deltas_by_period: too short period' if $period <= $min_period;
 
    my $step = floor($period / $min_period);
 
@@ -95,8 +96,6 @@ sub _average_periodic_sums {
    map { $_ / $count } @_;
 }
 
-@ARR = (1..40);
-
 # arg: _average_periodic_sums(...)
 # ret: diff between max and min point
 sub _evaluate_height {
@@ -107,8 +106,9 @@ sub _evaluate_height {
 # ret: HASHref( period => delta )
 sub _run_with_periods {
    my $from = ($min_period + 1) * 10;
-   my $to = floor(@ARR / 8);
+   my $to = @ARR / $min_pieces;
    die 'Too short @ARR' unless $from < $to;
+   die '$min_pieces logic is broken' unless floor($to) == $to;
 
    my %rc;
 
@@ -124,12 +124,23 @@ sub _run_with_periods {
 # arg: LIST of values
 # ret: period
 sub caler_fperiod {
-   shift while @_ % 8;
+   shift while @_ % $min_pieces;
    @ARR = reverse @_;
 
+   # TODO algorithm ?
    my $hr = _run_with_periods();
 
-   ... # analyze %{$hr}
+   ...
 
-   ... # check if it's correct period
+   # ===== analyze %{$hr}
+   # LOOP:
+   # - exclude keys from %period_blacklist
+   # - range remaining keys $hr->{} by values (deltas?)
+   # - if hash is empty: die with period unfound
+   # - select the best key
+   # - check if it's a correct period
+   # - if period is...
+   # -- uncorrect: it and it's divisors should be put into %period_blacklist
+   # -- correct: return and end the algorithm
+   # - repeat LOOP
 }
