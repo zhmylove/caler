@@ -70,19 +70,22 @@ sub _get_values_by_offset_deltas {
 }
 
 # arg0: period
+# arg1: BOOL: False => use _get_deltas_by_period; True => use full period
 # ret: LIST: ($count, @sums), where count => number of additions per sum_i
 sub _collect_periodic_sums {
    my $period = $_[0];
 
    my $count = floor(@ARR / $period);
-   my @sums = (0) x (0+_get_deltas_by_period $period);
-   print Dumper \@sums;
+   # parse arg1. Defaults to _get_deltas_by_period
+   # if defined arg1 && arg1 is True, then check use period
+   my @deltas = $_[1] ? (0)x($period-1) : _get_deltas_by_period $period;
+   my @sums = (0) x (0+@deltas);
    my $i;
 
    for my $offset (map { $_ * $period } 0..$count-1) {
       $i = 0;
       $sums[ $i++ ] += $_ for (
-         _get_values_by_offset_deltas $offset, _get_deltas_by_period $period
+         _get_values_by_offset_deltas $offset, @deltas
       );
    }
 
@@ -99,13 +102,20 @@ sub _average_periodic_sums {
 # arg: _average_periodic_sums(...)
 # ret: diff between max and min point
 sub _evaluate_height {
-   ...
+   #TODO maybe re-implement with single pass
+   use List::Util qw( max min );
+   max(@_) - min(@_);
 }
 
-# arg: $period
+# arg0: $period
+# arg1: lower threshold
 # ret: Boolean
 sub _check_period {
-   ...
+   my $period = $_[0];
+
+   _evaluate_height _average_periodic_sums _collect_periodic_sums $period, 'full'
+
+   #TODO how to check if period is correct...?
 }
 
 # arg: --
@@ -113,7 +123,7 @@ sub _check_period {
 sub _run_with_periods {
    my $from = ($min_period + 1) * 10;
    my $to = @ARR / $min_pieces;
-   die 'Too short @ARR' unless $from < $to;
+   die "Too short ARR from=$from to=$to" unless $from < $to;
    die '$min_pieces logic is broken' unless floor($to) == $to;
 
    my %rc;
@@ -172,5 +182,10 @@ sub caler_fperiod {
 
    die 'caler_period unable to calculate' if $period < 0;
 
+   #TODO
+   # - try to reduce $period using _get_divisors
+
    return $period;
 }
+
+1;
