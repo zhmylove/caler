@@ -112,10 +112,13 @@ sub _evaluate_height {
 # ret: Boolean
 sub _check_period {
    my $period = $_[0];
+   my $lower_threshold = $_[1];
 
-   _evaluate_height _average_periodic_sums _collect_periodic_sums $period, 'full'
+   my $height = _evaluate_height _average_periodic_sums _collect_periodic_sums(
+      $period, 'check_full_period'
+   );
 
-   #TODO how to check if period is correct...?
+   return $height > $lower_threshold;
 }
 
 # arg: --
@@ -164,7 +167,7 @@ sub caler_fperiod {
       my $probe = $sorted[0];
 
       # - check if it's a correct period
-      if (_check_period($probe)) {
+      if (_check_period($probe, $deltas{$probe} / 2)) {
          # -- correct: return and end the algorithm
          $period = $probe;
          last;
