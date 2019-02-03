@@ -43,7 +43,10 @@ memoize('_get_prime_sum', LIST_CACHE => 'MERGE');
 
 my $primes_to_use = 5; # number of primes to use from @primes
 my $min_period = _get_prime_sum($primes_to_use); # (lower bound)
-my $min_pieces = 8; # minimum number of pieces in period (upper bound)
+
+# minimum number of pieces in period (upper bound)
+# '6' looks quite good, due a week has 7 days and 6 is 7 - 1
+my $min_pieces = 6;
 
 # arg0: period
 # ret: LIST of primes
@@ -52,9 +55,12 @@ sub _get_deltas_by_period {
 
    die '_get_deltas_by_period: too short period' if $period <= $min_period;
 
-   my $step = floor($period / $min_period);
+   #TODO check both variants
+   #v1# my $step = ($period / $min_period);
+   my $step = ($period / $min_period);
 
-   map { ($_ - 1) * $step } @primes[0..$primes_to_use-1];
+   #v1# map { ($_ - 1) * $step } @primes[0..$primes_to_use-1];
+   map { int(($_ - 1) * $step) } @primes[0..$primes_to_use-1];
 }
 
 # arg0: offset
@@ -76,9 +82,11 @@ sub _collect_periodic_sums {
    my $period = $_[0];
 
    my $count = floor(@ARR / $period);
+
    # parse arg1. Defaults to _get_deltas_by_period
    # if defined arg1 && arg1 is True, then check use period
-   my @deltas = $_[1] ? (0)x($period-1) : _get_deltas_by_period $period;
+   my @deltas = $_[1] ? (0) x ($period-1) : _get_deltas_by_period $period;
+
    my @sums = (0) x (0+@deltas);
    my $i;
 
@@ -124,7 +132,7 @@ sub _check_period {
 # arg: --
 # ret: HASHref( period => delta )
 sub _run_with_periods {
-   my $from = ($min_period + 1) * 10;
+   my $from = ($min_period + 1) * $min_pieces;
    my $to = @ARR / $min_pieces;
    die "Too short ARR from=$from to=$to" unless $from < $to;
    die '$min_pieces logic is broken' unless floor($to) == $to;
