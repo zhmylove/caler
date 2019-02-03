@@ -14,6 +14,7 @@ use lib '.';
 use Data::Dumper;
 use Memoize;
 use POSIX;
+use List::Util qw( sum max min );
 
 use Exporter 'import';
 our @EXPORT = qw( caler_fperiod );
@@ -111,7 +112,6 @@ sub _average_periodic_sums {
 # ret: diff between max and min point
 sub _evaluate_height {
    #TODO maybe re-implement with single pass
-   use List::Util qw( max min );
    max(@_) - min(@_);
 }
 
@@ -159,20 +159,29 @@ sub _stddev {
 }
 
 # arg: $period
+# ret: stddev
+sub _get_period_stddev {
+   my $curr_period = shift;
+   my $count = floor(@ARR / $curr_period);
+   my $rc = 0;
+   for my $offset (0..$curr_period-1) {
+      my @values = @ARR[map { $offset + $_ * $curr_period } (0..$count-1)];
+      $rc += _stddev(@values);
+   }
+
+   return $rc;
+}
+memoize('_get_period_stddev', LIST_CACHE => 'MERGE');
+
+# arg: $period
 # ret: Boolean if $period is period of @array
 sub _check_period_stddev {
    my $period = $_[0];
-   my $size = @ARR;
-   my @stddev;
-   my $base_period = $period - 1;
-   for my $curr (0..2) {
-      my $curr_period = $base_period + $curr;
-      my $count = floor($size / $curr_period);
-      for my $offset (0..$curr_period-1) {
-         my @values = @ARR[map { $offset + $_ * $curr_period } (0..$count-1)];
-         $stddev[$curr] += _stddev(@values);
-      }
-   }
+   my @stddev = (
+      _get_period_stddev $period - 1,
+      _get_period_stddev $period,
+      _get_period_stddev $period + 1,
+   );
 
    return $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2];
 }
@@ -192,6 +201,7 @@ sub caler_fperiod {
    my $period = -1;
 
    _debug "_run_with_periods()";
+   #TODO check another algo for %deltas estimation, based on stddev
    my %deltas = %{_run_with_periods()};
    _debug "delta($ENV{PER})=$deltas{$ENV{PER}}";
 
@@ -203,8 +213,10 @@ sub caler_fperiod {
    )[0..9];
 
    _debug "LOOP entry";
+   my $debug_iters = 0;
    # LOOP:
    while (1) {
+      $debug_iters++;
       # - exclude keys from %period_blacklist
       delete @deltas{keys %period_blacklist};
 
@@ -218,7 +230,7 @@ sub caler_fperiod {
       my $probe = $sorted[0];
 
       # - check if it's a correct period
-      if (_check_period($probe, $deltas{$probe} / 2)) {
+      if (_check_period_stddev($probe)) {
          # -- correct: return and end the algorithm
          $period = $probe;
          last;
@@ -231,7 +243,7 @@ sub caler_fperiod {
       # - repeat LOOP
    }
 
-   _debug "LOOP return";
+   _debug "LOOP return with period $period after $debug_iters iterations";
    die 'caler_period unable to calculate' if $period < 0;
 
    # - try to reduce $period using _get_divisors
@@ -244,7 +256,7 @@ sub caler_fperiod {
    my $lower_threshold = $deltas{$period} / 2;
    for my $curr (@final_check) {
       last if $curr >= $period;
-      $period = $curr if _check_period $curr, $lower_threshold;
+      $period = $curr if _check_period_stddev $curr;
    }
 
    _debug "return";
