@@ -228,6 +228,7 @@ sub caler_fperiod {
 
       # - select the best key
       my $probe = $sorted[0];
+      _debug "LOOP iternation with probe=$probe";
 
       # - check if it's a correct period
       if (_check_period_stddev($probe)) {
@@ -264,3 +265,6 @@ sub caler_fperiod {
 }
 
 1;
+#TODO
+#- use local-averaged function values instead of exact
+#- use stddev for first stage
