@@ -11,15 +11,15 @@ use utf8;
 binmode STDOUT, ':utf8';
 
 use lib '.';
+use Data::Dumper;
+use Memoize;
+use POSIX;
+
 use Exporter 'import';
 our @EXPORT = qw( caler_fperiod );
 
-our $DEBUG = 1;
-
-use Data::Dumper;
-sub _debug { print STDERR @_, "\n" if $DEBUG; }
-use Memoize;
-use POSIX;
+our $DEBUG = $ENV{_DEBUG} // 1;
+sub _debug { print STDERR " * ".__PACKAGE__."(".time."): @_\n" if $DEBUG; }
 
 our @ARR; # should be filled in reverse order to skip from the beginning
 
@@ -41,7 +41,7 @@ sub _get_prime_sum($) {
 }
 memoize('_get_prime_sum', LIST_CACHE => 'MERGE');
 
-my $primes_to_use = 5; # number of primes to use from @primes
+my $primes_to_use = 10; # number of primes to use from @primes
 my $min_period = _get_prime_sum($primes_to_use); # (lower bound)
 
 # minimum number of pieces in period (upper bound)
@@ -126,6 +126,7 @@ sub _check_period {
       $period, 'check_full_period'
    );
 
+   _debug "_check_period($period): h = $height >? t = $lower_threshold";
    return $height > $lower_threshold;
 }
 
@@ -148,18 +149,60 @@ sub _run_with_periods {
    \%rc;
 }
 
+# arg: LIST
+# ret: stddev of LIST
+sub _stddev {
+   my $meanx = sum(@_) / @_;
+   my $meanxx = sum(map $_**2, @_) / @_;
+
+   sqrt abs($meanxx - $meanx ** 2);
+}
+
+# arg: $period
+# ret: Boolean if $period is period of @array
+sub _check_period_stddev {
+   my $period = $_[0];
+   my $size = @ARR;
+   my @stddev;
+   my $base_period = $period - 1;
+   for my $curr (0..2) {
+      my $curr_period = $base_period + $curr;
+      my $count = floor($size / $curr_period);
+      for my $offset (0..$curr_period-1) {
+         my @values = @ARR[map { $offset + $_ * $curr_period } (0..$count-1)];
+         $stddev[$curr] += _stddev(@values);
+      }
+   }
+
+   return $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2];
+}
+
+
+# TODO remove external dependency
+use caler_period '_get_divisors';
+
 # arg: LIST of values
 # ret: period
 sub caler_fperiod {
+   _debug "entry";
+
    shift while @_ % $min_pieces;
    @ARR = reverse @_;
 
-   # TODO algorithm ?
    my $period = -1;
+
+   _debug "_run_with_periods()";
    my %deltas = %{_run_with_periods()};
+   _debug "delta($ENV{PER})=$deltas{$ENV{PER}}";
+
    my %period_blacklist;
    my @sorted;
 
+   _debug "full sorted top 10: ", join " ", map {"$_($deltas{$_})"} (
+      sort {$deltas{$b} <=> $deltas{$a} || $a <=> $b} keys %deltas
+   )[0..9];
+
+   _debug "LOOP entry";
    # LOOP:
    while (1) {
       # - exclude keys from %period_blacklist
@@ -182,20 +225,29 @@ sub caler_fperiod {
       } else {
          # -- incorrect: it and it's divisors should be blacklisted
 
-         # TODO remove external dependency
-         use caler_period '_get_divisors';
-
          @period_blacklist{_get_divisors($probe)} = ();
       }
 
       # - repeat LOOP
    }
 
+   _debug "LOOP return";
    die 'caler_period unable to calculate' if $period < 0;
 
-   #TODO
    # - try to reduce $period using _get_divisors
+   my @final_check = sort {$a <=> $b} grep {not exists $period_blacklist{$_}} (
+      _get_divisors $period
+   );
 
+   _debug "final_check";
+   #TODO perhaps implement binary-search? Current: left-to-right approach
+   my $lower_threshold = $deltas{$period} / 2;
+   for my $curr (@final_check) {
+      last if $curr >= $period;
+      $period = $curr if _check_period $curr, $lower_threshold;
+   }
+
+   _debug "return";
    return $period;
 }
 
