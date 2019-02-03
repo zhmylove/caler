@@ -178,9 +178,9 @@ memoize('_get_period_stddev', LIST_CACHE => 'MERGE');
 sub _check_period_stddev {
    my $period = $_[0];
    my @stddev = (
-      _get_period_stddev $period - 1,
-      _get_period_stddev $period,
-      _get_period_stddev $period + 1,
+      _get_period_stddev($period - 1),
+      _get_period_stddev($period),
+      _get_period_stddev($period + 1),
    );
 
    return $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2];
