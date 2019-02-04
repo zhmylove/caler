@@ -239,6 +239,8 @@ memoize('_get_divisors', LIST_CACHE => 'MERGE');
 
 # Рабочий массив
 our @ARR;
+# Рабочие переменные
+my (%diff, $max_delta, $min_delta, $AVG);
 
 # Should be called with filled @ARR
 sub _get_idx_for_period {
@@ -346,7 +348,7 @@ sub caler_period_fast {
    @ARR = @_;
 
    # For 1..$max_p estimate sums
-   my %diff;
+   #my %diff;
 
    goto 'SKIP2';
    #4#   print STDERR "4\n";
@@ -375,41 +377,27 @@ sub caler_period_fast {
 
    SKIP2:
 
+   # TODO fix env variables
+   $ENV{PER} //= 1234;
+
    print STDERR "10\n";
-   my $AVG = sum(@ARR) / scalar(@ARR);
+   $AVG = sum(@ARR) / scalar(@ARR);
    print STDERR "11 avg=$AVG @{[1/$AVG]}\n";
 
-   my $max_delta = 0;
+   $max_delta = 0;
+   $min_delta = -1;
 
    # Обойдем массив, сделаем быструю проверку периода
    #print "Curr\tDelta\tMod\tIdx\n";
    print STDERR "12\n";
-   CURR: for my $curr (4..@ARR/4) {
-      # $curr -- Это предполагаемый период
-      if ($curr < 4) {
-         $diff{$curr}{delta} = 0;
-         next;
-      }
 
-      my $check = 1233;
+   # Вспомогательная функция для подсчета delta
+   sub __evaluate_deltas {
+      my $curr = $_[1];
       my @idx = _get_idx_for_period $curr;
-      #printf "{%d $curr %d %d @idx}\n", 0+@ARR, floor($curr/4), 0+@idx;
       my $delta = abs(sum(@ARR[@idx]) / @idx - $AVG);
-
-      my $n = 5;
-      #3#  for (3..100) {
-      #3#     $n = $_;
-      #3#     last if $curr % $n == 0;
-      #3#     if ($_ == 100) {
-      #3#        #die "Failed to get even N";
-      #3#        $diff{$curr}{delta} = 0;
-      #3#        next 'CURR';
-      #3#     }
-      #3#  }
-      #print STDERR "N = $n\n";
+      my $n = $_[0];
       my $hperiod = floor($curr / $n);
-      #print STDERR "(curr $curr N $n hperiod $hperiod)\n";
-
       for (1..$n-1) {
          for (@idx) {
             $_ -= $hperiod;
@@ -420,24 +408,100 @@ sub caler_period_fast {
 
       $diff{$curr}{delta} = $delta;
       $max_delta = $delta if $delta > $max_delta;
-
-      #print "$curr\t$delta\t".($curr%$ENV{PER})."\t@idx\n";
+      $min_delta = $delta if $delta < $min_delta || $min_delta < 0;
    }
 
-   # Normalize deltas
-   $diff{$_}{delta} /= $max_delta for keys %diff;
+   # Вспомогательная функция для запуска __evaluate_deltas
+   sub __run_evaluate_loop {
+      my $iters = shift;
 
-   my @x = sort { $a <=> $b } grep { $diff{$_}{delta} >= 0.5 } keys %diff;
+      for my $curr (@_) {
+         # $curr -- Это предполагаемый период
+         if ($curr < 4) {
+            $diff{$curr}{delta} = 0;
+            next;
+         }
 
-   print STDERR "14 max_delta: $max_delta\n";
-   my $prev = $x[0];
-   my @for_analysis;
-   for (@x) {
-      last if $_ - $prev > $_ * 0.1;
-      push @for_analysis, $_;
-      printf "%d\t%d\t%d\tdelta=%.3f\n", $_, $_ - $prev, ($_ % $ENV{PER}), $diff{$_}{delta};
-      $prev = $_;
+         # NOTE на будущее
+         # Делая этот алгоритм рекурсивным, можно неплохо оптимизировать через
+         # memoize. Типа, если $n шагает на 5 значений, то f(X) = f(X-5) + smth()
+         # И сделать так, чтобы f(X-5) использовала те же значения индексов,
+         # что и f(X)
+
+         $iters = $curr if $iters > $curr;
+         __evaluate_deltas($iters, $curr);
+      }
    }
+
+   # Функция принимает число итераций, по которому проверяем период
+   sub __check_period {
+      my $iters = shift;
+      my @keys = @_;
+
+      __run_evaluate_loop($iters, @keys);
+      # Normalize deltas
+      $diff{$_}{delta} -= $min_delta for (@keys);
+      $diff{$_}{delta} /= ($max_delta - $min_delta) for (@keys);
+
+      # Это нужно только однажды ?
+      my @x = sort { $a <=> $b } grep { $diff{$_}{delta} >= 0.5 } (@keys);
+
+      print STDERR "14 max_delta: $max_delta iters: $iters keys: ".scalar(@keys)." ";
+      if (@keys < 50) {
+         print STDERR join " ", @keys, "\n";
+      } else {
+         print STDERR "\n";
+      }
+      print STDERR "8641 delta: $diff{86401}{delta}\n";
+      my $prev = $x[0];
+      my @for_analysis;
+      for (@x) {
+         last if $_ - $prev > $_ * 0.1;
+         push @for_analysis, $_;
+         #printf "%d\t%d\t%d\tdelta=%.3f\n", $_, $_ - $prev, ($_ % $ENV{PER}), $diff{$_}{delta};
+         $prev = $_;
+      }
+
+      return @for_analysis;
+   }
+
+   my $n = 5;
+   my @first_iter = __check_period($n, 4..@ARR/4);
+   # Should be called with filled @first_iter
+   my @full_keys = sort { $a <=> $b } grep { $diff{$_}{delta} >= 0.5 } (4..@ARR/4);
+
+   # Сдвинем на будущее массив full_keys
+   shift @full_keys for (1..@first_iter);
+   $n *= 2;
+
+   # Тут нужно будет рекурсивно проверить периоды для first_iter
+   # Но пока что просто сверху вниз
+   my @next_iter = __check_period($n, @first_iter);
+
+#5#   for (1..99999) {
+#5#      die "Unable to find a period" if $_ == 99999;
+#5#      if (@next_iter == 0) {
+#5#         ... # тут нужно перейти к следующей части из @full_keys
+#5#      } elsif (@next_iter == 1) {
+#5#         # вероятно, мы его нашли
+#5#         print STDERR "..---=== PERIOD: $next_iter[0] ===---..\n";
+#5#         last;
+#5#      } else {
+#5#         # рекурсивно повторяем 
+#5#         $n *= 2;
+#5#         $max_delta = 0;
+#5#         $min_delta = -1;
+#5#         @next_iter = __check_period($n, @next_iter);
+#5#      }
+#5#   }
+
+   #print join " ", @next_iter;
+
+   print "\n-----------\n";
+   $max_delta = 0;
+   $min_delta = -1;
+   print join " ", __check_period(99999, (86400, 86401, 86402));
+   print "$_ $diff{$_}{delta}\n" for (86400, 86401, 86402);
 
    # Из центра @for_analysis нужно будет выполнить детальный анализ
 
@@ -505,46 +569,72 @@ sub caler_period_fast {
    #TODO от меньшего к большему выполнить детальный анализ
 }
 
+use List::Util;
+sub q_avg { List::Util::sum(@_)/@_ }
+
+# arg0: period; arg1: LIST of indices
+# ret: LIST of ARR elements
+sub q_arr_extract {
+   my $period = shift;
+   my @idx = @_;
+
+   @ARR[ grep { $_ < @ARR } map { my $base = $_ * $period;
+   map { $_ + $base } @idx } (0..floor(@ARR / $period)-1)];
+}
+
+# arg0: step arg1: period
+# ret: LIST of indexes for q_arr_extract
+sub q_arr_idx {
+   my $step = $_[0];
+   my $period = $_[1];
+
+## Perhaps recursive ?
+#   if ($step == 1) {
+#      return (0, floor($period / 2));
+#   }
+#
+#   return (q_arr_idx($step - 1, $period), ...);
+
+   $step++;
+   $step = $period if $step > $period;
+
+   my $add = floor($period / $step);
+   my @rc;
+   my $init = 0;
+   for (1..$step) { push @rc, $init; $init += $add }
+
+   # TODO результаты вообще приемлемы??
+   return @rc;
+}
+
+@ARR=(1..5)x3;
+my $ARR_AVG = q_avg(@ARR);
+for my $p (1..6) {
+   print "$p: ", q_avg map { abs($_ - $ARR_AVG) } q_arr_extract($p, q_arr_idx(1, $p));
+   print "\n";
+}
+
 sub caler_period_quick {
    die "caler_period: array is too short" if @_ < 8;
-   my $size = floor sqrt @_;
-   shift while (@_ % $size); # normalize (is it OK?)
-   @ARR = @_;
 
-   my @diff; #resuting array
-   my %diff; #resuting hash
+   shift while (@_ % 4);
+   @ARR = reverse @_;
 
-   for my $hperiod (1..$size) {
-      my @sums;
-      my $sum;
-
-      for (my $i = 0; $i < $hperiod ** 2; $i++) {
-         $sums[$i % $hperiod] += $ARR[$#ARR - $i];
-         $sum += $ARR[$#ARR - $i];
-      }
-
-      my $avg = $sum / ($hperiod ** 2);
-      $sums[$_] /= $hperiod for (0..$#sums);
-
-      use List::Util qw( sum max min );
-      #push @{$diff[ sum map {abs($sums[$_] - $avg)} (0..$#sums) ]}, $hperiod;
-      $diff{$hperiod} = sum map {abs($sums[$_] - $avg)} (0..$#sums);
-
-      #print "$hperiod: ". sum map {abs($sums[$_] - $avg)} (0..$#sums);
-   }
-
-   my @sorted = sort { $diff{$a} <=> $diff{$b} } keys %diff;
-   my $hmax = $sorted[$#sorted];
-   my @divisors = _get_divisors $hmax;
-   my %available;
-   $available{$_} = $diff{$hmax} / ($hmax / $_) for @divisors;
-
-   my @periods = grep { $diff{$_} >= $available{$_} } @divisors;
-   print "Period: $_ avail: $available{$_} value: $diff{$_} " for @divisors;
+   # Нам понадобятся:
+   # 1. функция, которая принимает (ЧИСЛО, период Р) и возвращает ЧИСЛО индексов из 0..Р
+   # 0 1 2 3 4 5 6 7 8
+   # +       +     +  
+   # +   +   +     +  
+   #    f(3, 9) => (0, 4, 7)
+   #    f(4, 9) => (0, 4, 7, 2)
+   # 2. функция, которая принимает (период Р, массив индексов 0..Р) и возвращает периодические значения из ARR им соответствующие
+   #    f(9, (0, 2, 5)) => @ARR[0, 2, 5, 9, 11, 14, ...]
+   # 3. функция, которая принимает СПИСОК и возвращает среднее: List::Util::sum(@_)/@_
+   #
+   #
 
 
-   #my $top = pop @diff;
-   #print Dumper \@diff;
+
 }
 
 =back
