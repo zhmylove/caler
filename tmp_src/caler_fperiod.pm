@@ -268,3 +268,4 @@ sub caler_fperiod {
 #TODO
 #- use local-averaged function values instead of exact
 #- use stddev for first stage
+#- fix P/2 detection for even period
