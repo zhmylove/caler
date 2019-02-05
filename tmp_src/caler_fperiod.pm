@@ -11,16 +11,17 @@ use utf8;
 binmode STDOUT, ':utf8';
 
 use lib '.';
-use Data::Dumper;
+use Data::Dumper; # debug?
 use Memoize;
 use POSIX;
 use List::Util qw( sum max min );
 
 use Exporter 'import';
 our @EXPORT = qw( caler_fperiod );
+our @EXPORT_OK = qw( _stddev _get_divisors );
 
 our $DEBUG = $ENV{_DEBUG} // 1;
-sub _debug { print STDERR " * ".__PACKAGE__."(".time."): @_\n" if $DEBUG; }
+sub _debug { printf STDERR " * %s(%d%s\n",__PACKAGE__,time,"): @_" if $DEBUG; }
 
 our @ARR; # should be filled in reverse order to skip from the beginning
 
@@ -135,6 +136,16 @@ sub _check_period {
 sub _run_with_periods {
    my $from = ($min_period + 1) * $min_pieces;
    my $to = @ARR / $min_pieces;
+
+   #TODO check if it's OK
+   # adjust values for small arrays
+   while ($from > $to && $primes_to_use >= 5) {
+      _debug "reducing primes...";
+      $min_period = _get_prime_sum(--$primes_to_use);
+      $from = ($min_period + 1) * $min_pieces;
+   }
+   _debug "primes to use: $primes_to_use";
+
    die "Too short ARR from=$from to=$to" unless $from < $to;
    die '$min_pieces logic is broken' unless floor($to) == $to;
 
@@ -175,25 +186,55 @@ memoize('_get_period_stddev', LIST_CACHE => 'MERGE');
 
 # arg: $period
 # ret: Boolean if $period is period of @array
+sub _check_period_stddev;
 sub _check_period_stddev {
    my $period = $_[0];
+   _debug "CHECKING $period...";
    my @stddev = (
       _get_period_stddev($period - 1),
       _get_period_stddev($period),
       _get_period_stddev($period + 1),
    );
 
+   if( $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2] ){
+      _debug "CHECK_OK $period: @stddev";
+      _check_period_stddev 64 if $period == 32;
+   }
    return $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2];
 }
 
 
-# TODO remove external dependency
-use caler_period '_get_divisors';
+# arg: number
+# ret: LIST of divisors of number, including number
+sub _get_divisors($);
+sub _get_divisors($) {
+   my $number = $_[0];
+
+   my %rc;
+   my $curr;
+
+   for my $div (2..$number) {
+      if ($number >= $div) {
+         if ($number % $div == 0) {
+            $rc{$div} = undef;
+            $rc{$number} = undef;
+            $curr = $number / $div;
+            last if $curr == 1;
+            $rc{$curr} = undef;
+            @rc{_get_divisors($curr)} = undef;
+         }
+      } else { last }
+   }
+
+   return keys %rc;
+}
+memoize('_get_divisors', LIST_CACHE => 'MERGE');
 
 # arg: LIST of values
 # ret: period
 sub caler_fperiod {
    _debug "entry";
+   my $debug_start = time;
 
    shift while @_ % $min_pieces;
    @ARR = reverse @_;
@@ -203,7 +244,7 @@ sub caler_fperiod {
    _debug "_run_with_periods()";
    #TODO check another algo for %deltas estimation, based on stddev
    my %deltas = %{_run_with_periods()};
-   _debug "delta($ENV{PER})=$deltas{$ENV{PER}}";
+   _debug "delta($ENV{PER})=$deltas{$ENV{PER}}" if defined $ENV{PER};
 
    my %period_blacklist;
    my @sorted;
@@ -260,7 +301,7 @@ sub caler_fperiod {
       $period = $curr if _check_period_stddev $curr;
    }
 
-   _debug "return";
+   _debug sprintf "return, spent: %.2f min", ((time - $debug_start) / 60);
    return $period;
 }
 
