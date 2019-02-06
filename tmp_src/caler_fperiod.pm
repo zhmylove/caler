@@ -44,6 +44,7 @@ sub _get_prime_sum($) {
 memoize('_get_prime_sum', LIST_CACHE => 'MERGE');
 
 my $primes_to_use = 10; # number of primes to use from @primes
+my $primes_to_use_initial = 10; # for multiple runs
 my $min_period = _get_prime_sum($primes_to_use); # (lower bound)
 
 # minimum number of pieces in period (upper bound)
@@ -139,7 +140,7 @@ sub _run_with_periods {
 
    #TODO check if it's OK
    # adjust values for small arrays
-   while ($from > $to && $primes_to_use >= 5) {
+   while ($from > $to && $primes_to_use >= 4) {
       _debug "reducing primes...";
       $min_period = _get_prime_sum(--$primes_to_use);
       $from = ($min_period + 1) * $min_pieces;
@@ -184,6 +185,39 @@ sub _get_period_stddev {
 }
 memoize('_get_period_stddev', LIST_CACHE => 'MERGE');
 
+# arg: _average_periodic_sums(...)
+# ret: LIST: (abs(max(@_)-$avg), abs(min(@_)-$avg))
+sub _evaluate_signed_height {
+   my $avg = sum(@_) / @_;
+   (abs(max(@_) - $avg), abs(min(@_) - $avg));
+}
+
+# arg: $period
+# ret: Boolean if $period is period of @array
+sub _check_period_sum;
+sub _check_period_sum {
+   my $period = $_[0];
+
+   sub __run {
+      _evaluate_signed_height _average_periodic_sums(
+         _collect_periodic_sums($_[0], 'check_full_period')
+      );
+   }
+
+   my ($pre_up, $pre_down) = __run($period - 1);
+   my ($up, $down) = __run($period);
+   my ($post_up, $post_down) = __run($period + 1);
+
+   my $rc = (
+      $up > $pre_up && $up > $post_up &&
+      $down > $pre_down && $down > $post_down
+   );
+   _debug "_check_period_sum($period): " . ($rc ? "True" : "False");
+   _debug "... $pre_up $up $post_up : $pre_down $down $post_down";
+
+   return $rc;
+}
+
 # arg: $period
 # ret: Boolean if $period is period of @array
 sub _check_period_stddev;
@@ -196,9 +230,9 @@ sub _check_period_stddev {
       _get_period_stddev($period + 1),
    );
 
+   _debug "CHECK RESULTS $period: @stddev";
    if( $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2] ){
       _debug "CHECK_OK $period: @stddev";
-      _check_period_stddev 64 if $period == 32;
    }
    return $stddev[1] < $stddev[0] && $stddev[1] < $stddev[2];
 }
@@ -236,15 +270,19 @@ sub caler_fperiod {
    _debug "entry";
    my $debug_start = time;
 
+   # reset variables
+   $primes_to_use = $primes_to_use_initial;
+   $min_period = _get_prime_sum($primes_to_use); # (lower bound)
+
    shift while @_ % $min_pieces;
    @ARR = reverse @_;
 
    my $period = -1;
 
    _debug "_run_with_periods()";
+
    #TODO check another algo for %deltas estimation, based on stddev
    my %deltas = %{_run_with_periods()};
-   _debug "delta($ENV{PER})=$deltas{$ENV{PER}}" if defined $ENV{PER};
 
    my %period_blacklist;
    my @sorted;
@@ -256,7 +294,7 @@ sub caler_fperiod {
    _debug "LOOP entry";
    my $debug_iters = 0;
    # LOOP:
-   while (1) {
+   ROUGH_LOOP: while (1) {
       $debug_iters++;
       # - exclude keys from %period_blacklist
       delete @deltas{keys %period_blacklist};
@@ -294,11 +332,24 @@ sub caler_fperiod {
    );
 
    _debug "final_check";
+
+   die 'caler_period unable to (re)calculate' unless defined $deltas{$period};
+   my $not_modified = 1;
+
    #TODO perhaps implement binary-search? Current: left-to-right approach
    my $lower_threshold = $deltas{$period} / 2;
    for my $curr (@final_check) {
       last if $curr >= $period;
-      $period = $curr if _check_period_stddev $curr;
+      if (_check_period_stddev($curr) && _check_period_sum($curr)) {
+         $period = $curr;
+         $not_modified = 0;
+      }
+   }
+
+   if ($not_modified && ! _check_period_sum($period)) {
+      @period_blacklist{_get_divisors($period)} = ();
+      _debug 'Returning to LOOP';
+      goto 'ROUGH_LOOP';
    }
 
    _debug sprintf "return, spent: %.2f min", ((time - $debug_start) / 60);
@@ -310,3 +361,4 @@ sub caler_fperiod {
 #- use local-averaged function values instead of exact
 #- use stddev for first stage
 #- fix P/2 detection for even period
+#- fix heartbeat

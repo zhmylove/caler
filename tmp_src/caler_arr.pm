@@ -200,7 +200,7 @@ sub carr_read {
    my @arr = ();
    my @line;
    while(defined($_ = <STDIN>) && (
-         @line = /^\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?(?:[Ee]-\d+)?)\s*$/
+         @line = /^\s*(\d+(?:\.\d+)?)\s+-?(\d+(?:\.\d+)?(?:[Ee]-\d+)?)\s*$/
       )) {
 
       my $new_index = int($line[0] + 0.49999);
