@@ -25,6 +25,7 @@ use Exporter 'import';
 our @EXPORT = qw( caler_period caler_period_fast caler_period_quick );
 our @EXPORT_OK = qw( _get_divisors );
 
+die "Deprecated module " . __PACKAGE__;
 
 our $DEBUG = 0;
 

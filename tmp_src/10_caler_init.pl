@@ -10,7 +10,7 @@ binmode STDOUT, ':utf8';
 
 use lib '.';
 use caler_arr;
-use caler_period;
+use caler_fperiod;
 
 # This file MUST get IAT form 0_csv_prepare.sh on STDIN.
 
@@ -41,13 +41,13 @@ die 'Too few elements in @arr' if @input < 3;
 # calculate period
 my $period;
 _ttyerr "Period estimation...";
-$period = @input % 2 ?
-caler_period(@input[2..$#input]) : caler_period(@input[1..$#input]);
+$period = caler_fperiod(@input[1..$#input]);
 _ttyerrs "Got P= $period";
 
 # split @input to groups
 _ttyerr "Group splitting";
-my @groups = carr_periodize($period, @input[1..$#input]);
+my $pad = @input % $period;
+my @groups = carr_periodize($period, @input[$pad..$#input]);
 _ttyerrs "complete...";
 
 # estimate Mean for groups

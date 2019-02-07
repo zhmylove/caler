@@ -20,7 +20,7 @@ use Exporter 'import';
 our @EXPORT = qw( caler_fperiod );
 our @EXPORT_OK = qw( _stddev _get_divisors );
 
-our $DEBUG = $ENV{_DEBUG} // 1;
+our $DEBUG = $ENV{_DEBUG} // 0;
 sub _debug { printf STDERR " * %s(%d%s\n",__PACKAGE__,time,"): @_" if $DEBUG; }
 
 our @ARR; # should be filled in reverse order to skip from the beginning
@@ -317,7 +317,7 @@ sub caler_fperiod {
 
       # - select the best key
       my $probe = $sorted[0];
-      _debug "LOOP iternation with probe=$probe";
+      _debug "LOOP iteration with probe=$probe";
 
       # - check if it's a correct period
       if (_check_period_stddev($probe)) {
