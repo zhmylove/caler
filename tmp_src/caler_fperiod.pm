@@ -189,7 +189,15 @@ memoize('_get_period_stddev', LIST_CACHE => 'MERGE');
 # ret: LIST: (abs(max(@_)-$avg), abs(min(@_)-$avg))
 sub _evaluate_signed_height {
    my $avg = sum(@_) / @_;
-   (abs(max(@_) - $avg), abs(min(@_) - $avg));
+   my ($down, $up);
+   for (map { $_ - $avg } @_) {
+      if ($_ < 0) {
+         $down -= $_;
+      } else {
+         $up += $_;
+      }
+   }
+   (abs($up), abs($down));
 }
 
 # arg: $period
@@ -197,6 +205,8 @@ sub _evaluate_signed_height {
 sub _check_period_sum;
 sub _check_period_sum {
    my $period = $_[0];
+
+   #TODO make sense: up - down VS down - up
 
    sub __run {
       _evaluate_signed_height _average_periodic_sums(
