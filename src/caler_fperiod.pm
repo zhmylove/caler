@@ -189,7 +189,7 @@ memoize('_get_period_stddev', LIST_CACHE => 'MERGE');
 # ret: LIST: (abs(max(@_)-$avg), abs(min(@_)-$avg))
 sub _evaluate_signed_height {
    my $avg = sum(@_) / @_;
-   my ($down, $up);
+   my ($down, $up) = (0, 0);
    for (map { $_ - $avg } @_) {
       if ($_ < 0) {
          $down -= $_;
