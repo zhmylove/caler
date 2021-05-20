@@ -1,0 +1,2 @@
+requires "AI::NeuralNet::Simple";
+requires "Math::LinearApprox";
