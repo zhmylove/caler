@@ -297,9 +297,10 @@ sub caler_fperiod {
    my %period_blacklist;
    my @sorted;
 
-   _debug "full sorted top 10: ", join " ", map {"$_($deltas{$_})"} (
-      sort {$deltas{$b} <=> $deltas{$a} || $a <=> $b} keys %deltas
-   )[0..9];
+   _debug "full sorted top 10: ", join " ", map {"$_($deltas{$_})"}
+      grep defined, (
+         sort {$deltas{$b} <=> $deltas{$a} || $a <=> $b} keys %deltas
+      )[0..9];
 
    _debug "LOOP entry";
    my $debug_iters = 0;
